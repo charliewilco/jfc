@@ -159,6 +159,36 @@ func TestRunListDifferentTraversesDirectories(t *testing.T) {
 	}
 }
 
+func TestRunCheckAcceptsGlobInput(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	first := filepath.Join(root, "a.json")
+	second := filepath.Join(root, "nested", "b.json")
+	if err := os.MkdirAll(filepath.Dir(second), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(first, []byte("{\"a\": 1}\n"), 0o644); err != nil {
+		t.Fatalf("write formatted file: %v", err)
+	}
+	if err := os.WriteFile(second, []byte(`{"b":1}`), 0o644); err != nil {
+		t.Fatalf("write unformatted file: %v", err)
+	}
+
+	pattern := filepath.Join(root, "*", "*.json")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", pattern}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+	if strings.TrimSpace(stdout.String()) != second {
+		t.Fatalf("expected glob result %q, got %q", second, stdout.String())
+	}
+}
+
 func TestRunUsesStdinFilepathForConfigDiscovery(t *testing.T) {
 	t.Parallel()
 
@@ -187,6 +217,42 @@ func TestRunUsesStdinFilepathForConfigDiscovery(t *testing.T) {
 	}
 }
 
+func TestRunExplicitConfigOverridesDiscovery(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	subdir := filepath.Join(root, "nested")
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	localConfig := "sort_keys = false\nobject_expand = \"never\"\n"
+	explicitConfig := filepath.Join(root, "custom.toml")
+	if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte(localConfig), 0o644); err != nil {
+		t.Fatalf("write discovered config: %v", err)
+	}
+	if err := os.WriteFile(explicitConfig, []byte("sort_keys = true\nobject_expand = \"never\"\n"), 0o644); err != nil {
+		t.Fatalf("write explicit config: %v", err)
+	}
+
+	target := filepath.Join(subdir, "example.json")
+	if err := os.WriteFile(target, []byte(`{"z":1,"a":2}`), 0o644); err != nil {
+		t.Fatalf("write json: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--config", explicitConfig, target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+	if stdout.String() != "{\"a\": 2, \"z\": 1}\n" {
+		t.Fatalf("unexpected stdout %q", stdout.String())
+	}
+}
+
 func TestRunHelpReturnsSuccess(t *testing.T) {
 	t.Parallel()
 
@@ -200,6 +266,32 @@ func TestRunHelpReturnsSuccess(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "Usage: jfc") {
 		t.Fatalf("expected usage output, got %q", stderr.String())
+	}
+}
+
+func TestRunRejectsMultipleFilesWithoutMode(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	first := filepath.Join(root, "a.json")
+	second := filepath.Join(root, "b.json")
+	if err := os.WriteFile(first, []byte("{\"a\": 1}\n"), 0o644); err != nil {
+		t.Fatalf("write first json: %v", err)
+	}
+	if err := os.WriteFile(second, []byte("{\"b\": 1}\n"), 0o644); err != nil {
+		t.Fatalf("write second json: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{first, second}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if !strings.Contains(stderr.String(), "multiple file arguments require") {
+		t.Fatalf("expected multiple file error, got %q", stderr.String())
 	}
 }
 

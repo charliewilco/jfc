@@ -141,9 +141,38 @@ Check formatting in CI:
 .TP
 Use an explicit config:
 .B jfc --config ./config/jfc.toml data/example.json
+.TP
+Use stdin with project config discovery:
+.B cat data.json | jfc --stdin-filepath apps/api/data.json
 .SH FILES
 .TP
 .B jfc.toml
 Project-local formatter configuration.
+.SH COOKBOOK
+.TP
+Use hard tabs:
+.RS
+.nf
+use_tabs = true
+tab_width = 4
+.fi
+.RE
+.TP
+Sort generated JSON deterministically:
+.RS
+.nf
+sort_keys = true
+object_expand = "always"
+array_expand = "always"
+.fi
+.RE
+.TP
+Normalize line endings for cross-platform repositories:
+.RS
+.nf
+end_of_line = "lf"
+trailing_newline = true
+.fi
+.RE
 .SH SEE ALSO
 .BR jq (1)

@@ -43,6 +43,50 @@ When stdin should inherit config from a specific project path, use `--stdin-file
 cat payload.json | jfc --stdin-filepath apps/api/payload.json
 ```
 
+## Examples
+
+Format a single file to stdout:
+
+```bash
+jfc package.json
+```
+
+Rewrite every JSON file under the current directory:
+
+```bash
+jfc --write .
+```
+
+Check formatting in CI without mutating files:
+
+```bash
+jfc --check .
+```
+
+Use hard tabs and key sorting from an explicit config:
+
+```bash
+jfc --config ./config/jfc.toml data/payload.json
+```
+
+Before:
+
+```json
+{"name":"jfc","scripts":{"test":"go test ./...","build":"go build ./..."}}
+```
+
+After with default settings:
+
+```json
+{
+  "name": "jfc",
+  "scripts": {
+    "test": "go test ./...",
+    "build": "go build ./..."
+  }
+}
+```
+
 ## CLI Flags
 
 - `--write`: format files in place
@@ -102,6 +146,58 @@ end_of_line = "lf"
 - `sort_keys = false` preserves input object order
 - `auto` expansion tries to keep arrays and objects inline when they fit within `print_width`
 - `sort_keys = true` only changes object member order; numeric/string values are preserved as parsed JSON
+
+## Cookbook
+
+### Format only changed JSON files in git
+
+```bash
+git diff --name-only -- '*.json' | xargs jfc --write
+```
+
+### Keep `package.json` stable but sort machine-generated JSON
+
+Use the default config for human-edited files:
+
+```toml
+sort_keys = false
+object_expand = "auto"
+array_expand = "auto"
+```
+
+Use a separate config for generated artifacts:
+
+```toml
+sort_keys = true
+object_expand = "always"
+array_expand = "always"
+```
+
+Then run:
+
+```bash
+jfc --config ./config/generated-json.toml artifacts/*.json
+```
+
+### Normalize line endings for cross-platform repos
+
+```toml
+end_of_line = "lf"
+trailing_newline = true
+```
+
+### Pipe from an editor or another tool but still pick up project config
+
+```bash
+cat tmp/response.json | jfc --stdin-filepath apps/api/response.json
+```
+
+### Make tabs real tabs, not spaces
+
+```toml
+use_tabs = true
+tab_width = 4
+```
 
 ## Behavior
 

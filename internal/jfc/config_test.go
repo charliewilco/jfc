@@ -78,6 +78,52 @@ func TestLoadConfigFileRejectsUnknownKey(t *testing.T) {
 	}
 }
 
+func TestLoadConfigFileRejectsInvalidValue(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, defaultConfigName)
+	if err := os.WriteFile(path, []byte("tab_width = 0\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := loadConfigFile(path)
+	if err == nil || !strings.Contains(err.Error(), "tab_width must be greater than zero") {
+		t.Fatalf("expected invalid value error, got %v", err)
+	}
+}
+
+func TestLoadConfigFileAllowsHashInsideStrings(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, defaultConfigName)
+	contents := "object_expand = \"always#still-a-string\"\n"
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := loadConfigFile(path)
+	if err == nil || !strings.Contains(err.Error(), "object_expand must be one of") {
+		t.Fatalf("expected full string to be parsed before validation, got %v", err)
+	}
+}
+
+func TestLoadConfigFileRejectsTables(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, defaultConfigName)
+	if err := os.WriteFile(path, []byte("[format]\nuse_tabs = true\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := loadConfigFile(path)
+	if err == nil || !strings.Contains(err.Error(), "tables are not supported") {
+		t.Fatalf("expected table error, got %v", err)
+	}
+}
+
 func TestFindConfigPathWalksUpward(t *testing.T) {
 	t.Parallel()
 
@@ -98,5 +144,18 @@ func TestFindConfigPathWalksUpward(t *testing.T) {
 	}
 	if !found || foundPath != configPath {
 		t.Fatalf("expected %q, got found=%v path=%q", configPath, found, foundPath)
+	}
+}
+
+func TestFindConfigPathReturnsNotFoundWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	foundPath, found, err := findConfigPath(root)
+	if err != nil {
+		t.Fatalf("findConfigPath returned error: %v", err)
+	}
+	if found || foundPath != "" {
+		t.Fatalf("expected no config, got found=%v path=%q", found, foundPath)
 	}
 }
