@@ -6,15 +6,36 @@ swear to god, i thought `jq` just did this, but here we are
 
 ## Install
 
+Install the latest version with Go:
+
+```bash
+go install github.com/charliewilco/jfc@latest
+```
+
+That will place `jfc` in your Go bin directory, typically:
+
+```bash
+$(go env GOPATH)/bin
+```
+
+If `GOBIN` is set, Go installs there instead.
+
+Build from source in a local checkout:
+
 ```bash
 go build -o jfc .
 ```
 
-For a typical local install:
+Install the built binary into a standard system path:
 
 ```bash
 go build -o jfc .
 install -m 0755 ./jfc /usr/local/bin/jfc
+```
+
+Install the man page too:
+
+```bash
 install -d /usr/local/share/man/man1
 install -m 0644 ./man/jfc.1 /usr/local/share/man/man1/jfc.1
 ```
