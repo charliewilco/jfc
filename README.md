@@ -1,4 +1,4 @@
-# swear to god, i thought `jq` just did this, but here we are
+swear to god, i thought `jq` just did this, but here we are
 
 # jfc
 
@@ -8,6 +8,15 @@
 
 ```bash
 go build -o jfc .
+```
+
+For a typical local install:
+
+```bash
+go build -o jfc .
+install -m 0755 ./jfc /usr/local/bin/jfc
+install -d /usr/local/share/man/man1
+install -m 0644 ./man/jfc.1 /usr/local/share/man/man1/jfc.1
 ```
 
 ## Usage
@@ -20,6 +29,39 @@ jfc --check .
 jfc --list-different .
 jfc --config jfc.toml file.json
 ```
+
+`jfc` reads from stdin when no file paths are provided or when you pass `-`.
+
+```bash
+cat package.json | jfc
+jfc - < package.json
+```
+
+When stdin should inherit config from a specific project path, use `--stdin-filepath`:
+
+```bash
+cat payload.json | jfc --stdin-filepath apps/api/payload.json
+```
+
+## CLI Flags
+
+- `--write`: format files in place
+- `--check`: print files that are not formatted and exit `1` if any differ
+- `--list-different`: print files that differ and exit `1` if any differ
+- `--config <path>`: use an explicit `jfc.toml`
+- `--stdin-filepath <path>`: resolve config for stdin as if the input came from that file
+- `--help`: print CLI usage
+
+## File Matching
+
+`jfc` accepts:
+
+- Individual `.json` files
+- Directories, walked recursively
+- Shell globs such as `jfc --check 'fixtures/**/*.json'`
+- Stdin via no args or `-`
+
+Non-JSON file arguments are rejected instead of being silently skipped. That is stricter than Prettier, but it is the right behavior for a JSON-only formatter.
 
 ## Configuration
 
@@ -41,6 +83,26 @@ space_within_brackets = false
 end_of_line = "lf"
 ```
 
+### Config Reference
+
+- `use_tabs`: use hard tabs for indentation
+- `tab_width`: visual width for one indent level
+- `print_width`: target width used for `auto` expansion decisions
+- `trailing_newline`: append a final newline when true
+- `sort_keys`: sort object keys lexicographically when true
+- `array_expand`: one of `"auto"`, `"always"`, or `"never"`
+- `object_expand`: one of `"auto"`, `"always"`, or `"never"`
+- `space_after_colon`: render `"key": value` vs `"key":value`
+- `space_within_braces`: render `{ "x": 1 }` vs `{"x": 1}`
+- `space_within_brackets`: render `[ 1, 2 ]` vs `[1, 2]`
+- `end_of_line`: one of `"lf"`, `"crlf"`, or `"cr"`
+
+### Formatting Notes
+
+- `sort_keys = false` preserves input object order
+- `auto` expansion tries to keep arrays and objects inline when they fit within `print_width`
+- `sort_keys = true` only changes object member order; numeric/string values are preserved as parsed JSON
+
 ## Behavior
 
 - Formats `.json` files from paths, directories, globs, or stdin
@@ -49,3 +111,16 @@ end_of_line = "lf"
 - Returns exit code `2` for parse, config, IO, or usage errors
 - Preserves object key order by default and can sort keys with `sort_keys = true`
 - Emits clear parse diagnostics with line and column information
+
+## CI
+
+GitHub Actions CI lives at `.github/workflows/ci.yml` and runs:
+
+- `gofmt -l`
+- `go vet ./...`
+- `go test ./...`
+- `go build ./...`
+
+## Man Page
+
+A manual page is included at [man/jfc.1](man/jfc.1).

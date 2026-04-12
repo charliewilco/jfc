@@ -128,6 +128,113 @@ func TestRunCheckReturnsNonZeroForUnformattedFile(t *testing.T) {
 	}
 }
 
+func TestRunListDifferentTraversesDirectories(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	formatted := filepath.Join(root, "formatted.json")
+	unformatted := filepath.Join(root, "nested", "example.json")
+	if err := os.MkdirAll(filepath.Dir(unformatted), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(formatted, []byte("{\"ok\": true}\n"), 0o644); err != nil {
+		t.Fatalf("write formatted file: %v", err)
+	}
+	if err := os.WriteFile(unformatted, []byte(`{"x":1}`), 0o644); err != nil {
+		t.Fatalf("write unformatted file: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--list-different", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+
+	lines := strings.Fields(stdout.String())
+	if len(lines) != 1 || lines[0] != unformatted {
+		t.Fatalf("expected only differing file path, got %q", stdout.String())
+	}
+}
+
+func TestRunUsesStdinFilepathForConfigDiscovery(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	subdir := filepath.Join(root, "nested")
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	config := "sort_keys = true\nobject_expand = \"never\"\n"
+	if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte(config), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	target := filepath.Join(subdir, "stdin.json")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--stdin-filepath", target}, strings.NewReader(`{"z":1,"a":2}`), &stdout, &stderr, func() (string, error) {
+		return subdir, nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+	if stdout.String() != "{\"a\": 2, \"z\": 1}\n" {
+		t.Fatalf("unexpected stdout %q", stdout.String())
+	}
+}
+
+func TestRunHelpReturnsSuccess(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--help"}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return t.TempDir(), nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitSuccess)
+	}
+	if !strings.Contains(stderr.String(), "Usage: jfc") {
+		t.Fatalf("expected usage output, got %q", stderr.String())
+	}
+}
+
+func TestRunRejectsWriteWithStdin(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--write"}, strings.NewReader(`{"x":1}`), &stdout, &stderr, func() (string, error) {
+		return t.TempDir(), nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if !strings.Contains(stderr.String(), "--write cannot be used with stdin") {
+		t.Fatalf("expected stdin write error, got %q", stderr.String())
+	}
+}
+
+func TestRunRejectsMutuallyExclusiveModes(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--write", "--check", "example.json"}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return t.TempDir(), nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if !strings.Contains(stderr.String(), "mutually exclusive") {
+		t.Fatalf("expected mutually exclusive flags error, got %q", stderr.String())
+	}
+}
+
 func TestRunReportsInvalidJSONWithLineAndColumn(t *testing.T) {
 	t.Parallel()
 

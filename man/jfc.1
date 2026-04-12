@@ -1,0 +1,149 @@
+.TH JFC 1 "2026-04-11" "jfc" "User Commands"
+.SH NAME
+jfc \- format JSON files with configurable, Prettier-style ergonomics
+.SH SYNOPSIS
+.B jfc
+[\fB--write\fR | \fB--check\fR | \fB--list-different\fR]
+[\fB--config\fR \fIPATH\fR]
+[\fB--stdin-filepath\fR \fIPATH\fR]
+[\fIFILE\fR ...]
+.SH DESCRIPTION
+.B jfc
+formats JSON files and stdin using a small, predictable formatter with TOML-based project configuration.
+It is intentionally shaped like a JSON-only Prettier-style CLI, including support for
+\fB--write\fR,
+\fB--check\fR,
+and
+\fB--list-different\fR.
+.PP
+When no file arguments are provided, or when a lone
+\fB-\fR
+is passed, input is read from standard input.
+Directories are traversed recursively and shell globs may be passed through the invoking shell.
+.SH OPTIONS
+.TP
+.B --write
+Format matching files in place.
+This option cannot be used with stdin.
+.TP
+.B --check
+Print files whose formatted output differs from the current contents and exit with status 1 when any differ.
+.TP
+.B --list-different
+Print files whose formatted output differs from the current contents and exit with status 1 when any differ.
+.TP
+.B --config PATH
+Load configuration from the specified
+\fBjfc.toml\fR
+file instead of walking upward from the target file or stdin path.
+.TP
+.B --stdin-filepath PATH
+Resolve stdin configuration as if the input originated from
+\fIPATH\fR.
+This is useful when piping content from editors or other tools while still wanting project-local config discovery.
+.TP
+.B --help
+Show usage information.
+.SH CONFIGURATION
+By default,
+.B jfc
+looks for
+\fBjfc.toml\fR
+starting from the file being formatted and walking upward toward the filesystem root.
+If stdin is used, discovery starts from the current working directory unless
+\fB--stdin-filepath\fR
+is provided.
+.PP
+Supported top-level keys:
+.TP
+.B use_tabs
+Use hard tabs for indentation.
+.TP
+.B tab_width
+Visual width for one indent level.
+.TP
+.B print_width
+Target width used to decide whether arrays and objects should remain inline when expansion is set to
+\fBauto\fR.
+.TP
+.B trailing_newline
+Append a final newline when true.
+.TP
+.B sort_keys
+Sort object keys lexicographically when true.
+.TP
+.B array_expand
+One of
+\fBauto\fR,
+\fBalways\fR,
+or
+\fBnever\fR.
+.TP
+.B object_expand
+One of
+\fBauto\fR,
+\fBalways\fR,
+or
+\fBnever\fR.
+.TP
+.B space_after_colon
+Render object members as
+\fB"key": value\fR
+instead of
+\fB"key":value\fR.
+.TP
+.B space_within_braces
+Add spaces just inside
+\fB{\fR
+and
+\fB}\fR
+for inline objects.
+.TP
+.B space_within_brackets
+Add spaces just inside
+\fB[\fR
+and
+\fB]\fR
+for inline arrays.
+.TP
+.B end_of_line
+One of
+\fBlf\fR,
+\fBcrlf\fR,
+or
+\fBcr\fR.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Formatting differences were found during
+\fB--check\fR
+or
+\fB--list-different\fR.
+.TP
+.B 2
+Parse, configuration, IO, or usage error.
+.SH EXAMPLES
+.TP
+Format a file to stdout:
+.B jfc package.json
+.TP
+Format stdin:
+.B cat package.json | jfc
+.TP
+Rewrite files in place:
+.B jfc --write .
+.TP
+Check formatting in CI:
+.B jfc --check .
+.TP
+Use an explicit config:
+.B jfc --config ./config/jfc.toml data/example.json
+.SH FILES
+.TP
+.B jfc.toml
+Project-local formatter configuration.
+.SH SEE ALSO
+.BR jq (1)
