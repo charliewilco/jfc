@@ -49,3 +49,55 @@ func TestFormatJSONRemovesSpaceAfterColonWhenConfigured(t *testing.T) {
 		t.Fatalf("unexpected output %q", got)
 	}
 }
+
+func TestFormatJSONPreservesObjectOrderByDefault(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.ObjectExpand = ExpandNever
+
+	output, err := formatJSON([]byte(`{"z":1,"a":2}`), cfg)
+	if err != nil {
+		t.Fatalf("formatJSON returned error: %v", err)
+	}
+
+	if got := string(output); got != "{\"z\": 1, \"a\": 2}\n" {
+		t.Fatalf("unexpected output %q", got)
+	}
+}
+
+func TestFormatJSONAppliesSpacingToEmptyContainers(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.SpaceWithinBraces = true
+	cfg.SpaceWithinBrackets = true
+	cfg.ObjectExpand = ExpandNever
+	cfg.ArrayExpand = ExpandNever
+
+	output, err := formatJSON([]byte(`{"emptyObject":{},"emptyArray":[]}`), cfg)
+	if err != nil {
+		t.Fatalf("formatJSON returned error: %v", err)
+	}
+
+	if got := string(output); got != "{ \"emptyObject\": { }, \"emptyArray\": [ ] }\n" {
+		t.Fatalf("unexpected output %q", got)
+	}
+}
+
+func TestFormatJSONAutoExpandsWhenPrintWidthIsTooSmall(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.PrintWidth = 10
+
+	output, err := formatJSON([]byte(`{"alpha":[1,2,3]}`), cfg)
+	if err != nil {
+		t.Fatalf("formatJSON returned error: %v", err)
+	}
+
+	expected := "{\n  \"alpha\": [\n    1,\n    2,\n    3\n  ]\n}\n"
+	if string(output) != expected {
+		t.Fatalf("unexpected output:\n%s", output)
+	}
+}
