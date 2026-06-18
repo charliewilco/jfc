@@ -1,0 +1,5 @@
+{
+	// editor defaults
+	"editor.tabSize":     2,
+	"files.associations": {"*.toml": "toml"},
+}

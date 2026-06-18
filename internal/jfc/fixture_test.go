@@ -15,11 +15,18 @@ func TestFormatDocumentFixtures(t *testing.T) {
 		golden string
 	}{
 		{name: "json", input: "json.input.json", golden: "json.golden.json"},
+		{name: "package_json", input: "package.input.json", golden: "package.golden.json"},
+		{name: "tsconfig_json", input: "tsconfig.input.json", golden: "tsconfig.golden.json"},
 		{name: "jsonc", input: "jsonc.input.jsonc", golden: "jsonc.golden.jsonc"},
+		{name: "settings_jsonc", input: "settings.input.jsonc", golden: "settings.golden.jsonc"},
 		{name: "jsonl", input: "jsonl.input.jsonl", golden: "jsonl.golden.jsonl"},
+		{name: "events_ndjson", input: "events.input.ndjson", golden: "events.golden.ndjson"},
 		{name: "yaml", input: "yaml.input.yaml", golden: "yaml.golden.yaml"},
+		{name: "workflow_yaml", input: "workflow.input.yaml", golden: "workflow.golden.yaml"},
 		{name: "toml", input: "toml.input.toml", golden: "toml.golden.toml"},
+		{name: "pyproject_toml", input: "pyproject.input.toml", golden: "pyproject.golden.toml"},
 		{name: "markdown", input: "markdown.input.md", golden: "markdown.golden.md"},
+		{name: "readme_markdown", input: "readme.input.md", golden: "readme.golden.md"},
 	}
 
 	for _, fixture := range fixtures {
@@ -50,6 +57,14 @@ func TestFormatDocumentFixtures(t *testing.T) {
 			}
 			if string(output) != string(expected) {
 				t.Fatalf("fixture output mismatch\nexpected:\n%s\nactual:\n%s", expected, output)
+			}
+
+			idempotent, err := formatDocument(expected, format, DefaultConfig())
+			if err != nil {
+				t.Fatalf("formatDocument returned error for golden output: %v", err)
+			}
+			if string(idempotent) != string(expected) {
+				t.Fatalf("fixture golden output is not idempotent\nexpected:\n%s\nactual:\n%s", expected, idempotent)
 			}
 		})
 	}

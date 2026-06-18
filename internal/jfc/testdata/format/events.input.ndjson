@@ -1,0 +1,3 @@
+{"event":"build","ok":true,"duration_ms":1200}
+
+{"event":"test","ok":false,"failures":["config","yaml"]}
