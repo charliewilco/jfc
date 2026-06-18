@@ -4,16 +4,16 @@ swear to god, i thought `jq` just did this, but here we are
 
 `jfc` means either "jesus fucking christ" or "just format correctly".
 
-It is a production-oriented Go CLI for formatting common project metadata and prose files with Prettier-style ergonomics, minus the JavaScript ecosystem. One binary, one nearest `jfc.toml`, predictable output.
+It is a Go CLI for conservative, predictable formatting of common project metadata and Markdown whitespace, with the strongest layout controls for JSON-family files. One binary, one nearest `jfc.toml`, predictable output.
 
 ## Supported Formats
 
 | Format | Extensions | Notes |
 | --- | --- | --- |
 | JSON | `.json` | Full structured formatting with object/array expansion controls. |
-| JSONC | `.jsonc` | Accepts comments and trailing commas while preserving comments. |
+| JSONC | `.jsonc` | Accepts comments and trailing commas while preserving comments; formatting is delegated to `hujson`. |
 | JSONL | `.jsonl`, `.ndjson` | Formats each non-empty line as one inline JSON value. |
-| YAML | `.yaml`, `.yml` | Preserves mapping order and comments through YAML AST formatting. |
+| YAML | `.yaml`, `.yml` | Preserves mapping order and comments through `yaml.v3` AST formatting. |
 | TOML | `.toml` | Validates TOML and normalizes assignment spacing while preserving comments/order. |
 | Markdown | `.md`, `.markdown` | Conservative whitespace normalization; no prose reflow. |
 
@@ -104,23 +104,24 @@ end_of_line = "lf"
 
 - `use_tabs`: use hard tabs for JSON indentation. YAML always uses spaces because hard-tab indentation is invalid YAML.
 - `tab_width`: visual width for tabs and YAML indentation spaces
-- `print_width`: target width used for JSON `auto` expansion decisions
+- `print_width`: target width used for JSON and JSONL `auto` expansion decisions
 - `trailing_newline`: append a final newline when true
 - `sort_keys`: sort JSON, JSONC, and JSONL object keys lexicographically when true
-- `array_expand`: JSON array layout, one of `"auto"`, `"always"`, or `"never"`
-- `object_expand`: JSON object layout, one of `"auto"`, `"always"`, or `"never"`
-- `space_after_colon`: render JSON object members as `"key": value` vs `"key":value`
-- `space_within_braces`: render inline JSON objects as `{ "x": 1 }` vs `{"x": 1}`
-- `space_within_brackets`: render inline JSON arrays as `[ 1, 2 ]` vs `[1, 2]`
+- `array_expand`: JSON and JSONL array layout, one of `"auto"`, `"always"`, or `"never"`
+- `object_expand`: JSON and JSONL object layout, one of `"auto"`, `"always"`, or `"never"`
+- `space_after_colon`: render JSON and JSONL object members as `"key": value` vs `"key":value`
+- `space_within_braces`: render inline JSON and JSONL objects as `{ "x": 1 }` vs `{"x": 1}`
+- `space_within_brackets`: render inline JSON and JSONL arrays as `[ 1, 2 ]` vs `[1, 2]`
 - `end_of_line`: one of `"lf"`, `"crlf"`, or `"cr"`
 
 ## Format Notes
 
-- JSON preserves object key order by default and can sort keys with `sort_keys = true`.
-- JSONC preserves comments and accepts trailing commas.
-- JSONL skips blank lines and reports parse errors with the record line number.
-- TOML formatting is intentionally conservative: invalid TOML is rejected, assignment spacing is normalized, and comments/order are preserved.
-- Markdown formatting is intentionally conservative: line endings, blank-line whitespace, final newline, and fenced code block indentation are normalized, but prose is not rewrapped.
+- JSON uses jfc's own structured renderer, preserves object key order by default, and can sort keys with `sort_keys = true`.
+- JSONC preserves comments and accepts trailing commas through `hujson`; jfc can sort object keys, but JSON layout options do not fully control `hujson` spacing.
+- JSONL skips blank lines, reports parse errors with the record line number, and renders each record through the JSON formatter in inline mode.
+- YAML is parsed and encoded with `yaml.v3`; jfc controls indentation and output conventions but does not expose a full YAML style system.
+- TOML formatting is intentionally conservative: invalid TOML is rejected, assignment spacing is normalized, and comments/order are preserved. It does not rewrite tables, arrays, or prose in comments.
+- Markdown formatting is intentionally conservative: line endings, blank-line whitespace, final newline, and fenced code block indentation are normalized, but prose is not rewrapped and the Markdown AST is not rewritten.
 
 ## Cookbook
 
