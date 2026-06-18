@@ -1,0 +1,7 @@
+[project]
+name="jfc"
+requires-python=">=3.12"
+
+[tool.ruff]
+line-length=100
+select=["E", "F"]

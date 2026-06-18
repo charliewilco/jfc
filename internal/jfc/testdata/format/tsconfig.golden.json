@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "paths": {"@app/*": ["src/*"]}
+  },
+  "include": ["src", "tests"]
+}
