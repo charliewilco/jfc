@@ -278,9 +278,23 @@ func expandArg(arg string) ([]string, error) {
 }
 
 func appendTarget(path string, seen map[string]struct{}, targets *[]string) error {
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	if err != nil {
 		return fmt.Errorf("stat %s: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		targetInfo, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", path, err)
+		}
+		if targetInfo.IsDir() {
+			return nil
+		}
+		if _, ok := detectFormat(path); !ok {
+			return fmt.Errorf("%s is not a supported file (%s)", path, supportedExtensionsText())
+		}
+		addUnique(path, seen, targets)
+		return nil
 	}
 
 	if info.IsDir() {
@@ -290,6 +304,9 @@ func appendTarget(path string, seen map[string]struct{}, targets *[]string) erro
 			}
 			if entry.IsDir() && entry.Name() == ".git" {
 				return filepath.SkipDir
+			}
+			if entry.Type()&os.ModeSymlink != 0 {
+				return nil
 			}
 			if entry.IsDir() {
 				return nil
@@ -324,13 +341,24 @@ func hasGlob(path string) bool {
 }
 
 func writeFileAtomically(path string, contents []byte) error {
-	info, err := os.Stat(path)
+	writePath := path
+	if info, err := os.Lstat(path); err != nil {
+		return err
+	} else if info.Mode()&os.ModeSymlink != 0 {
+		resolved, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return err
+		}
+		writePath = resolved
+	}
+
+	info, err := os.Stat(writePath)
 	if err != nil {
 		return err
 	}
 
-	dir := filepath.Dir(path)
-	tempFile, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	dir := filepath.Dir(writePath)
+	tempFile, err := os.CreateTemp(dir, "."+filepath.Base(writePath)+".tmp-*")
 	if err != nil {
 		return err
 	}
@@ -353,7 +381,7 @@ func writeFileAtomically(path string, contents []byte) error {
 		cleanup()
 		return err
 	}
-	if err := os.Rename(tempPath, path); err != nil {
+	if err := os.Rename(tempPath, writePath); err != nil {
 		cleanup()
 		return err
 	}

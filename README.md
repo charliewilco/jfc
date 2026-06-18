@@ -80,6 +80,8 @@ cat payload.jsonc | jfc --stdin-filepath config/payload.jsonc
 
 Directory traversal skips unsupported files and `.git`. Explicit unsupported file arguments are rejected instead of silently ignored.
 
+Traversal does not follow symlinked directories or symlinked files discovered while walking a directory. Explicit symlinked file arguments are accepted when the link path has a supported extension and the target is a file; `--write` updates the target file without replacing the symlink. Other hidden, generated, vendor, or build directories are not skipped unless they are unsupported by file extension or named `.git`.
+
 ## Configuration
 
 `jfc` looks for `jfc.toml` by walking upward from each file being formatted. `--config` overrides discovery for all targets. Stdin discovery starts from `--stdin-filepath` when provided, otherwise from the current working directory.

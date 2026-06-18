@@ -293,6 +293,122 @@ func TestRunWriteTraversesSupportedFormats(t *testing.T) {
 	}
 }
 
+func TestRunWriteSkipsSymlinksDuringDirectoryTraversal(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "outside.json")
+	if err := os.WriteFile(outside, []byte(`{"x":1}`), 0o644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+	link := filepath.Join(root, "linked.json")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--write", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if !strings.Contains(stderr.String(), "no supported files found") {
+		t.Fatalf("expected no supported files error, got %q", stderr.String())
+	}
+
+	contents, err := os.ReadFile(outside)
+	if err != nil {
+		t.Fatalf("read outside file: %v", err)
+	}
+	if string(contents) != `{"x":1}` {
+		t.Fatalf("expected symlink target to remain unchanged, got %q", contents)
+	}
+}
+
+func TestRunWriteExplicitSymlinkUpdatesTargetAndPreservesLink(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	target := filepath.Join(root, "target.json")
+	if err := os.WriteFile(target, []byte(`{"x":1}`), 0o640); err != nil {
+		t.Fatalf("write target file: %v", err)
+	}
+	link := filepath.Join(root, "linked.json")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--write", link}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+
+	linkInfo, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("lstat link: %v", err)
+	}
+	if linkInfo.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected %s to remain a symlink", link)
+	}
+	contents, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read target file: %v", err)
+	}
+	if string(contents) != "{\"x\": 1}\n" {
+		t.Fatalf("unexpected target contents %q", contents)
+	}
+	targetInfo, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("stat target: %v", err)
+	}
+	if targetInfo.Mode().Perm() != 0o640 {
+		t.Fatalf("expected target mode 0640, got %v", targetInfo.Mode().Perm())
+	}
+}
+
+func TestRunWritePreservesFileMode(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	target := filepath.Join(root, "example.json")
+	if err := os.WriteFile(target, []byte(`{"x":1}`), 0o600); err != nil {
+		t.Fatalf("write target file: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--write", target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("stat target: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("expected mode 0600, got %v", info.Mode().Perm())
+	}
+}
+
+func TestWriteFileAtomicallyReportsMissingPath(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "missing", "example.json")
+	err := writeFileAtomically(path, []byte("{}\n"))
+	if err == nil {
+		t.Fatal("expected missing path error")
+	}
+}
+
 func TestRunStdinFilepathSelectsMarkdownFormatter(t *testing.T) {
 	t.Parallel()
 

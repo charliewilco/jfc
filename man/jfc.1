@@ -23,6 +23,14 @@ is provided.
 Directories are traversed recursively.
 Unsupported files found during directory traversal are skipped.
 Explicit unsupported file arguments are rejected.
+.PP
+Directory traversal does not follow symlinked directories or symlinked files.
+Explicit symlinked file arguments are accepted when the link path has a supported extension and the target is a file.
+When
+.B --write
+formats an explicit symlinked file, the target file is updated and the symlink itself is preserved.
+Other hidden, generated, vendor, or build directories are not skipped unless they are unsupported by file extension or named
+.BR .git .
 .SH SUPPORTED FORMATS
 .TP
 .B JSON
