@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"jfc/internal/jfc"
+	"github.com/charliewilco/jfc/internal/jfc"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module jfc
+module github.com/charliewilco/jfc
 
 go 1.26.0
 
