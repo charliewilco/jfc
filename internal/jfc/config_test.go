@@ -48,6 +48,33 @@ func TestLoadConfigFileParsesSupportedSchema(t *testing.T) {
 	}
 }
 
+func TestLoadConfigFileUsesTOMLSyntax(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, defaultConfigName)
+	contents := strings.Join([]string{
+		"tab_width = 1_0",
+		"print_width = +120",
+		"array_expand = \"AUTO\"",
+		"end_of_line = '''lf'''",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := loadConfigFile(path)
+	if err != nil {
+		t.Fatalf("loadConfigFile returned error: %v", err)
+	}
+	if cfg.TabWidth != 10 || cfg.PrintWidth != 120 {
+		t.Fatalf("expected TOML integer syntax to decode, got %+v", cfg)
+	}
+	if cfg.ArrayExpand != ExpandAuto || cfg.EndOfLine != EndOfLineLF {
+		t.Fatalf("expected string values to normalize, got %+v", cfg)
+	}
+}
+
 func TestLoadConfigFileRejectsDuplicateKey(t *testing.T) {
 	t.Parallel()
 
@@ -58,7 +85,7 @@ func TestLoadConfigFileRejectsDuplicateKey(t *testing.T) {
 	}
 
 	_, err := loadConfigFile(path)
-	if err == nil || !strings.Contains(err.Error(), "duplicate key") {
+	if err == nil || !strings.Contains(err.Error(), "already defined") {
 		t.Fatalf("expected duplicate key error, got %v", err)
 	}
 }
@@ -119,7 +146,7 @@ func TestLoadConfigFileRejectsTables(t *testing.T) {
 	}
 
 	_, err := loadConfigFile(path)
-	if err == nil || !strings.Contains(err.Error(), "tables are not supported") {
+	if err == nil || !strings.Contains(err.Error(), "unknown config key") {
 		t.Fatalf("expected table error, got %v", err)
 	}
 }
