@@ -189,6 +189,107 @@ func TestRunCheckAcceptsGlobInput(t *testing.T) {
 	}
 }
 
+func TestRunCheckAcceptsRecursiveGlobInput(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	direct := filepath.Join(root, "fixtures", "direct.jsonc")
+	nested := filepath.Join(root, "fixtures", "a", "b", "nested.jsonc")
+	if err := os.MkdirAll(filepath.Dir(nested), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(direct, []byte("{\"direct\": true}\n"), 0o644); err != nil {
+		t.Fatalf("write direct file: %v", err)
+	}
+	if err := os.WriteFile(nested, []byte(`{"nested":true}`), 0o644); err != nil {
+		t.Fatalf("write nested file: %v", err)
+	}
+
+	pattern := filepath.Join(root, "fixtures", "**", "*.jsonc")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", pattern}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+
+	lines := strings.Fields(stdout.String())
+	if len(lines) != 1 || lines[0] != nested {
+		t.Fatalf("expected only nested file to differ, got %q", stdout.String())
+	}
+}
+
+func TestRunCheckRecursiveGlobSkipsGitDirectory(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	gitObject := filepath.Join(root, ".git", "objects", "internal.json")
+	workingFile := filepath.Join(root, "fixtures", "working.json")
+	if err := os.MkdirAll(filepath.Dir(gitObject), 0o755); err != nil {
+		t.Fatalf("mkdir .git object dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(workingFile), 0o755); err != nil {
+		t.Fatalf("mkdir working dir: %v", err)
+	}
+	if err := os.WriteFile(gitObject, []byte(`{"git":true}`), 0o644); err != nil {
+		t.Fatalf("write git object: %v", err)
+	}
+	if err := os.WriteFile(workingFile, []byte(`{"working":true}`), 0o644); err != nil {
+		t.Fatalf("write working file: %v", err)
+	}
+
+	pattern := filepath.Join(root, "**", "*.json")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", pattern}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+
+	output := stdout.String()
+	if strings.Contains(output, ".git") {
+		t.Fatalf("recursive glob should skip .git, got %q", output)
+	}
+	if !strings.Contains(output, workingFile) {
+		t.Fatalf("expected working file in output, got %q", output)
+	}
+}
+
+func TestRunCheckRejectsUnmatchedRecursiveGlob(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	pattern := filepath.Join(root, "fixtures", "**", "*.jsonc")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", pattern}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if !strings.Contains(stderr.String(), "did not match any files") {
+		t.Fatalf("expected unmatched glob error, got %q", stderr.String())
+	}
+}
+
+func TestRecursiveGlobRoot(t *testing.T) {
+	t.Parallel()
+
+	if got := recursiveGlobRoot(filepath.Join("fixtures", "**", "*.jsonc")); got != "fixtures" {
+		t.Fatalf("recursiveGlobRoot relative = %q, want fixtures", got)
+	}
+
+	absolutePattern := filepath.Join(string(filepath.Separator), "tmp", "**", "*.jsonc")
+	if got := recursiveGlobRoot(absolutePattern); got != filepath.Join(string(filepath.Separator), "tmp") {
+		t.Fatalf("recursiveGlobRoot absolute = %q, want /tmp", got)
+	}
+}
+
 func TestCollectTargetsIncludesAllSupportedExtensions(t *testing.T) {
 	t.Parallel()
 
