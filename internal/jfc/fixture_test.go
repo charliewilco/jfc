@@ -1,0 +1,56 @@
+package jfc
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestFormatDocumentFixtures(t *testing.T) {
+	t.Parallel()
+
+	fixtures := []struct {
+		name   string
+		input  string
+		golden string
+	}{
+		{name: "json", input: "json.input.json", golden: "json.golden.json"},
+		{name: "jsonc", input: "jsonc.input.jsonc", golden: "jsonc.golden.jsonc"},
+		{name: "jsonl", input: "jsonl.input.jsonl", golden: "jsonl.golden.jsonl"},
+		{name: "yaml", input: "yaml.input.yaml", golden: "yaml.golden.yaml"},
+		{name: "toml", input: "toml.input.toml", golden: "toml.golden.toml"},
+		{name: "markdown", input: "markdown.input.md", golden: "markdown.golden.md"},
+	}
+
+	for _, fixture := range fixtures {
+		fixture := fixture
+		t.Run(fixture.name, func(t *testing.T) {
+			t.Parallel()
+
+			inputPath := filepath.Join("testdata", "format", fixture.input)
+			goldenPath := filepath.Join("testdata", "format", fixture.golden)
+
+			input, err := os.ReadFile(inputPath)
+			if err != nil {
+				t.Fatalf("read input fixture: %v", err)
+			}
+			expected, err := os.ReadFile(goldenPath)
+			if err != nil {
+				t.Fatalf("read golden fixture: %v", err)
+			}
+
+			format, ok := detectFormat(inputPath)
+			if !ok {
+				t.Fatalf("fixture input has unsupported extension: %s", inputPath)
+			}
+
+			output, err := formatDocument(input, format, DefaultConfig())
+			if err != nil {
+				t.Fatalf("formatDocument returned error: %v", err)
+			}
+			if string(output) != string(expected) {
+				t.Fatalf("fixture output mismatch\nexpected:\n%s\nactual:\n%s", expected, output)
+			}
+		})
+	}
+}

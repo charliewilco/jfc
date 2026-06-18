@@ -21,14 +21,8 @@ func formatJSON(input []byte, config Config) ([]byte, error) {
 
 	renderer := formatter{config: config}
 	output := renderer.renderValue(root, 0)
-	if config.TrailingNewline {
-		output += "\n"
-	}
-	if eol := config.endOfLineString(); eol != "\n" {
-		output = strings.ReplaceAll(output, "\n", eol)
-	}
 
-	return []byte(output), nil
+	return applyOutputConventions(output, config), nil
 }
 
 type formatter struct {

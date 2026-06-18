@@ -1,8 +1,19 @@
-swear to god, i thought `jq` just did this, but here we are
-
 # jfc
 
-`jfc` is a production-oriented Go CLI for formatting JSON files with Prettier-style ergonomics, including support for real hard tabs and project-local TOML configuration.
+`jfc` means either "jesus fucking christ" or "just format correctly".
+
+It is a production-oriented Go CLI for formatting common project metadata and prose files with Prettier-style ergonomics, minus the JavaScript ecosystem. One binary, one nearest `jfc.toml`, predictable output.
+
+## Supported Formats
+
+| Format | Extensions | Notes |
+| --- | --- | --- |
+| JSON | `.json` | Full structured formatting with object/array expansion controls. |
+| JSONC | `.jsonc` | Accepts comments and trailing commas while preserving comments. |
+| JSONL | `.jsonl`, `.ndjson` | Formats each non-empty line as one inline JSON value. |
+| YAML | `.yaml`, `.yml` | Preserves mapping order and comments through YAML AST formatting. |
+| TOML | `.toml` | Validates TOML and normalizes assignment spacing while preserving comments/order. |
+| Markdown | `.md`, `.markdown` | Conservative whitespace normalization; no prose reflow. |
 
 ## Install
 
@@ -12,30 +23,17 @@ Install the latest version with Go:
 go install github.com/charliewilco/jfc@latest
 ```
 
-That will place `jfc` in your Go bin directory, typically:
-
-```bash
-$(go env GOPATH)/bin
-```
-
-If `GOBIN` is set, Go installs there instead.
-
 Build from source in a local checkout:
 
 ```bash
 go build -o jfc .
 ```
 
-Install the built binary into a standard system path:
+Install the built binary and man page:
 
 ```bash
 go build -o jfc .
 install -m 0755 ./jfc /usr/local/bin/jfc
-```
-
-Install the man page too:
-
-```bash
 install -d /usr/local/share/man/man1
 install -m 0644 ./man/jfc.1 /usr/local/share/man/man1/jfc.1
 ```
@@ -44,68 +42,20 @@ install -m 0644 ./man/jfc.1 /usr/local/share/man/man1/jfc.1
 
 ```bash
 jfc file.json
+jfc README.md
 cat file.json | jfc
-jfc --write file.json
+jfc --write .
 jfc --check .
 jfc --list-different .
-jfc --config jfc.toml file.json
+jfc --config jfc.toml config/app.yaml
 ```
 
 `jfc` reads from stdin when no file paths are provided or when you pass `-`.
+Stdin defaults to JSON for backward compatibility. Use `--stdin-filepath` when stdin should use another format or inherit config from a specific project path:
 
 ```bash
-cat package.json | jfc
-jfc - < package.json
-```
-
-When stdin should inherit config from a specific project path, use `--stdin-filepath`:
-
-```bash
-cat payload.json | jfc --stdin-filepath apps/api/payload.json
-```
-
-## Examples
-
-Format a single file to stdout:
-
-```bash
-jfc package.json
-```
-
-Rewrite every JSON file under the current directory:
-
-```bash
-jfc --write .
-```
-
-Check formatting in CI without mutating files:
-
-```bash
-jfc --check .
-```
-
-Use hard tabs and key sorting from an explicit config:
-
-```bash
-jfc --config ./config/jfc.toml data/payload.json
-```
-
-Before:
-
-```json
-{"name":"jfc","scripts":{"test":"go test ./...","build":"go build ./..."}}
-```
-
-After with default settings:
-
-```json
-{
-  "name": "jfc",
-  "scripts": {
-    "test": "go test ./...",
-    "build": "go build ./..."
-  }
-}
+cat README.md | jfc --stdin-filepath README.md
+cat payload.jsonc | jfc --stdin-filepath config/payload.jsonc
 ```
 
 ## CLI Flags
@@ -114,23 +64,23 @@ After with default settings:
 - `--check`: print files that are not formatted and exit `1` if any differ
 - `--list-different`: print files that differ and exit `1` if any differ
 - `--config <path>`: use an explicit `jfc.toml`
-- `--stdin-filepath <path>`: resolve config for stdin as if the input came from that file
+- `--stdin-filepath <path>`: resolve stdin config and format as if input came from that file
 - `--help`: print CLI usage
 
 ## File Matching
 
 `jfc` accepts:
 
-- Individual `.json` files
+- Individual supported files
 - Directories, walked recursively
-- Shell globs such as `jfc --check 'fixtures/**/*.json'`
+- Shell globs such as `jfc --check 'fixtures/**/*.jsonc'`
 - Stdin via no args or `-`
 
-Non-JSON file arguments are rejected instead of being silently skipped. That is stricter than Prettier, but it is the right behavior for a JSON-only formatter.
+Directory traversal skips unsupported files and `.git`. Explicit unsupported file arguments are rejected instead of silently ignored.
 
 ## Configuration
 
-`jfc` looks for `jfc.toml` in the current project, walking upward from the file being formatted. You can also pass an explicit config path with `--config`.
+`jfc` looks for `jfc.toml` by walking upward from each file being formatted. `--config` overrides discovery for all targets. Stdin discovery starts from `--stdin-filepath` when provided, otherwise from the current working directory.
 
 Example:
 
@@ -150,43 +100,47 @@ end_of_line = "lf"
 
 ### Config Reference
 
-- `use_tabs`: use hard tabs for indentation
-- `tab_width`: visual width for one indent level
-- `print_width`: target width used for `auto` expansion decisions
+- `use_tabs`: use hard tabs for JSON indentation. YAML always uses spaces because hard-tab indentation is invalid YAML.
+- `tab_width`: visual width for tabs and YAML indentation spaces
+- `print_width`: target width used for JSON `auto` expansion decisions
 - `trailing_newline`: append a final newline when true
-- `sort_keys`: sort object keys lexicographically when true
-- `array_expand`: one of `"auto"`, `"always"`, or `"never"`
-- `object_expand`: one of `"auto"`, `"always"`, or `"never"`
-- `space_after_colon`: render `"key": value` vs `"key":value`
-- `space_within_braces`: render `{ "x": 1 }` vs `{"x": 1}`
-- `space_within_brackets`: render `[ 1, 2 ]` vs `[1, 2]`
+- `sort_keys`: sort JSON, JSONC, and JSONL object keys lexicographically when true
+- `array_expand`: JSON array layout, one of `"auto"`, `"always"`, or `"never"`
+- `object_expand`: JSON object layout, one of `"auto"`, `"always"`, or `"never"`
+- `space_after_colon`: render JSON object members as `"key": value` vs `"key":value`
+- `space_within_braces`: render inline JSON objects as `{ "x": 1 }` vs `{"x": 1}`
+- `space_within_brackets`: render inline JSON arrays as `[ 1, 2 ]` vs `[1, 2]`
 - `end_of_line`: one of `"lf"`, `"crlf"`, or `"cr"`
 
-### Formatting Notes
+## Format Notes
 
-- `sort_keys = false` preserves input object order
-- `auto` expansion tries to keep arrays and objects inline when they fit within `print_width`
-- `sort_keys = true` only changes object member order; numeric/string values are preserved as parsed JSON
+- JSON preserves object key order by default and can sort keys with `sort_keys = true`.
+- JSONC preserves comments and accepts trailing commas.
+- JSONL skips blank lines and reports parse errors with the record line number.
+- TOML formatting is intentionally conservative: invalid TOML is rejected, assignment spacing is normalized, and comments/order are preserved.
+- Markdown formatting is intentionally conservative: line endings, blank-line whitespace, final newline, and fenced code block indentation are normalized, but prose is not rewrapped.
 
 ## Cookbook
 
-### Format only changed JSON files in git
+Format a mixed repo in place:
 
 ```bash
-git diff --name-only -- '*.json' | xargs jfc --write
+jfc --write .
 ```
 
-### Keep `package.json` stable but sort machine-generated JSON
+Check formatting in CI:
 
-Use the default config for human-edited files:
-
-```toml
-sort_keys = false
-object_expand = "auto"
-array_expand = "auto"
+```bash
+jfc --check .
 ```
 
-Use a separate config for generated artifacts:
+Format only changed supported files in git:
+
+```bash
+git diff --name-only -- '*.json' '*.jsonc' '*.jsonl' '*.ndjson' '*.yaml' '*.yml' '*.toml' '*.md' '*.markdown' | xargs jfc --write
+```
+
+Keep generated JSON deterministic:
 
 ```toml
 sort_keys = true
@@ -194,47 +148,31 @@ object_expand = "always"
 array_expand = "always"
 ```
 
-Then run:
-
-```bash
-jfc --config ./config/generated-json.toml artifacts/*.json
-```
-
-### Normalize line endings for cross-platform repos
+Normalize line endings for cross-platform repos:
 
 ```toml
 end_of_line = "lf"
 trailing_newline = true
 ```
 
-### Pipe from an editor or another tool but still pick up project config
-
-```bash
-cat tmp/response.json | jfc --stdin-filepath apps/api/response.json
-```
-
-### Make tabs real tabs, not spaces
-
-```toml
-use_tabs = true
-tab_width = 4
-```
-
 ## Behavior
 
-- Formats `.json` files from paths, directories, globs, or stdin
+- Formats supported files from paths, directories, globs, or stdin
 - Supports `--write`, `--check`, and `--list-different`
 - Returns exit code `1` when `--check` or `--list-different` finds unformatted files
 - Returns exit code `2` for parse, config, IO, or usage errors
-- Preserves object key order by default and can sort keys with `sort_keys = true`
-- Emits clear parse diagnostics with line and column information
+- Emits parse diagnostics from the underlying format parser
 
 ## CI
 
-GitHub Actions CI lives at `.github/workflows/ci.yml` and runs:
+The local verification recipe runs:
 
-- `gofmt -l`
-- `go vet ./...`
+```bash
+just check
+```
+
+which currently executes:
+
 - `go test ./...`
 - `go build ./...`
 

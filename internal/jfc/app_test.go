@@ -189,6 +189,42 @@ func TestRunCheckAcceptsGlobInput(t *testing.T) {
 	}
 }
 
+func TestCollectTargetsIncludesAllSupportedExtensions(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	names := []string{
+		"data.json",
+		"settings.jsonc",
+		"events.jsonl",
+		"events.ndjson",
+		"config.yaml",
+		"config.yml",
+		"tool.toml",
+		"README.md",
+		"README.markdown",
+		"main.go",
+	}
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("{}\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	targets, err := collectTargets([]string{root})
+	if err != nil {
+		t.Fatalf("collectTargets returned error: %v", err)
+	}
+	if len(targets) != len(names)-1 {
+		t.Fatalf("expected %d supported files, got %d: %v", len(names)-1, len(targets), targets)
+	}
+	for _, target := range targets {
+		if filepath.Base(target) == "main.go" {
+			t.Fatalf("unsupported file included in targets: %v", targets)
+		}
+	}
+}
+
 func TestRunUsesStdinFilepathForConfigDiscovery(t *testing.T) {
 	t.Parallel()
 
@@ -214,6 +250,90 @@ func TestRunUsesStdinFilepathForConfigDiscovery(t *testing.T) {
 	}
 	if stdout.String() != "{\"a\": 2, \"z\": 1}\n" {
 		t.Fatalf("unexpected stdout %q", stdout.String())
+	}
+}
+
+func TestRunWriteTraversesSupportedFormats(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	files := map[string]string{
+		"data.json":       `{"x":1}`,
+		"settings.jsonc":  "{\n// keep\n\"x\": 1,\n}\n",
+		"events.jsonl":    "{\"x\":1}\n",
+		"config.yaml":     "root:\n  child: value\n",
+		"tool.toml":       "name=\"jfc\"\n",
+		"README.markdown": "# Title\r\n   \r\n",
+	}
+	for name, contents := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write unsupported file: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--write", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+
+	for _, name := range []string{"data.json", "settings.jsonc", "events.jsonl", "tool.toml", "README.markdown"} {
+		if !strings.Contains(stdout.String(), filepath.Join(root, name)) {
+			t.Fatalf("expected %s in stdout, got %q", name, stdout.String())
+		}
+	}
+	if strings.Contains(stdout.String(), "main.go") {
+		t.Fatalf("unsupported file should not be traversed, got %q", stdout.String())
+	}
+}
+
+func TestRunStdinFilepathSelectsMarkdownFormatter(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run(
+		[]string{"--stdin-filepath", "README.md"},
+		strings.NewReader("# Title\r\n   \r\n"),
+		&stdout,
+		&stderr,
+		func() (string, error) {
+			return t.TempDir(), nil
+		},
+	)
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+	if stdout.String() != "# Title\n" {
+		t.Fatalf("unexpected stdout %q", stdout.String())
+	}
+}
+
+func TestRunRejectsUnsupportedExplicitFile(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	target := filepath.Join(root, "main.go")
+	if err := os.WriteFile(target, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write unsupported file: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if !strings.Contains(stderr.String(), "not a supported file") {
+		t.Fatalf("expected supported file error, got %q", stderr.String())
 	}
 }
 
