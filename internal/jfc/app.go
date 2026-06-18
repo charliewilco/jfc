@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -266,6 +267,9 @@ func expandArg(arg string) ([]string, error) {
 	if !hasGlob(arg) {
 		return []string{arg}, nil
 	}
+	if hasRecursiveGlob(arg) {
+		return expandRecursiveGlob(arg)
+	}
 
 	matches, err := filepath.Glob(arg)
 	if err != nil {
@@ -275,6 +279,112 @@ func expandArg(arg string) ([]string, error) {
 		return nil, fmt.Errorf("glob %q did not match any files", arg)
 	}
 	return matches, nil
+}
+
+func hasRecursiveGlob(pattern string) bool {
+	for _, segment := range strings.Split(filepath.ToSlash(pattern), "/") {
+		if segment == "**" {
+			return true
+		}
+	}
+	return false
+}
+
+func expandRecursiveGlob(pattern string) ([]string, error) {
+	root := recursiveGlobRoot(pattern)
+	if _, err := os.Stat(root); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("glob %q did not match any files", pattern)
+		}
+		return nil, fmt.Errorf("stat glob root %s: %w", root, err)
+	}
+
+	var matches []string
+	err := filepath.WalkDir(root, func(current string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		matched, err := matchRecursiveGlob(pattern, current)
+		if err != nil {
+			return err
+		}
+		if matched {
+			matches = append(matches, current)
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, path.ErrBadPattern) {
+			return nil, fmt.Errorf("invalid glob %q: %w", pattern, err)
+		}
+		return nil, err
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("glob %q did not match any files", pattern)
+	}
+	return matches, nil
+}
+
+func recursiveGlobRoot(pattern string) string {
+	clean := filepath.Clean(pattern)
+	slashPattern := filepath.ToSlash(clean)
+	segments := strings.Split(slashPattern, "/")
+	fixed := make([]string, 0, len(segments))
+
+	for _, segment := range segments {
+		if segment == "**" || hasGlob(segment) {
+			break
+		}
+		fixed = append(fixed, segment)
+	}
+
+	switch {
+	case len(fixed) == 0:
+		return "."
+	case len(fixed) == 1 && fixed[0] == "":
+		return string(filepath.Separator)
+	default:
+		return filepath.FromSlash(strings.Join(fixed, "/"))
+	}
+}
+
+func matchRecursiveGlob(pattern string, candidate string) (bool, error) {
+	patternSegments := pathSegments(pattern)
+	candidateSegments := pathSegments(candidate)
+	return matchGlobSegments(patternSegments, candidateSegments)
+}
+
+func pathSegments(value string) []string {
+	clean := filepath.Clean(value)
+	return strings.Split(filepath.ToSlash(clean), "/")
+}
+
+func matchGlobSegments(patternSegments []string, candidateSegments []string) (bool, error) {
+	if len(patternSegments) == 0 {
+		return len(candidateSegments) == 0, nil
+	}
+
+	if patternSegments[0] == "**" {
+		if matched, err := matchGlobSegments(patternSegments[1:], candidateSegments); matched || err != nil {
+			return matched, err
+		}
+		if len(candidateSegments) == 0 {
+			return false, nil
+		}
+		return matchGlobSegments(patternSegments, candidateSegments[1:])
+	}
+
+	if len(candidateSegments) == 0 {
+		return false, nil
+	}
+	matched, err := path.Match(patternSegments[0], candidateSegments[0])
+	if err != nil {
+		return false, err
+	}
+	if !matched {
+		return false, nil
+	}
+	return matchGlobSegments(patternSegments[1:], candidateSegments[1:])
 }
 
 func appendTarget(path string, seen map[string]struct{}, targets *[]string) error {
