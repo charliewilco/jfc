@@ -304,6 +304,9 @@ func expandRecursiveGlob(pattern string) ([]string, error) {
 		if walkErr != nil {
 			return walkErr
 		}
+		if entry.IsDir() && entry.Name() == ".git" {
+			return filepath.SkipDir
+		}
 		matched, err := matchRecursiveGlob(pattern, current)
 		if err != nil {
 			return err
@@ -327,25 +330,37 @@ func expandRecursiveGlob(pattern string) ([]string, error) {
 
 func recursiveGlobRoot(pattern string) string {
 	clean := filepath.Clean(pattern)
-	slashPattern := filepath.ToSlash(clean)
-	segments := strings.Split(slashPattern, "/")
+	volume := filepath.VolumeName(clean)
+	rest := strings.TrimPrefix(clean, volume)
+	rooted := strings.HasPrefix(rest, string(filepath.Separator))
+	segments := strings.Split(filepath.ToSlash(rest), "/")
 	fixed := make([]string, 0, len(segments))
 
 	for _, segment := range segments {
+		if segment == "" {
+			continue
+		}
 		if segment == "**" || hasGlob(segment) {
 			break
 		}
 		fixed = append(fixed, segment)
 	}
 
-	switch {
-	case len(fixed) == 0:
+	if len(fixed) == 0 {
+		if rooted {
+			return volume + string(filepath.Separator)
+		}
+		if volume != "" {
+			return volume
+		}
 		return "."
-	case len(fixed) == 1 && fixed[0] == "":
-		return string(filepath.Separator)
-	default:
-		return filepath.FromSlash(strings.Join(fixed, "/"))
 	}
+
+	joined := filepath.FromSlash(strings.Join(fixed, "/"))
+	if rooted {
+		return filepath.Join(volume+string(filepath.Separator), joined)
+	}
+	return volume + joined
 }
 
 func matchRecursiveGlob(pattern string, candidate string) (bool, error) {
