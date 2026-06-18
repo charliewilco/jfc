@@ -1,6 +1,6 @@
-.TH JFC 1 "2026-04-11" "jfc" "User Commands"
+.TH JFC 1 "2026-06-16" "jfc" "User Commands"
 .SH NAME
-jfc \- format JSON files with configurable, Prettier-style ergonomics
+jfc \- format common project files with one nearest TOML config
 .SH SYNOPSIS
 .B jfc
 [\fB--write\fR | \fB--check\fR | \fB--list-different\fR]
@@ -9,17 +9,39 @@ jfc \- format JSON files with configurable, Prettier-style ergonomics
 [\fIFILE\fR ...]
 .SH DESCRIPTION
 .B jfc
-formats JSON files and stdin using a small, predictable formatter with TOML-based project configuration.
-It is intentionally shaped like a JSON-only Prettier-style CLI, including support for
-\fB--write\fR,
-\fB--check\fR,
-and
-\fB--list-different\fR.
+means either "jesus fucking christ" or "just format correctly".
+It formats common project metadata and prose files with Prettier-style ergonomics, minus the JavaScript ecosystem.
 .PP
+Supported formats are JSON, JSONC, JSONL, YAML, TOML, and Markdown.
 When no file arguments are provided, or when a lone
-\fB-\fR
+.B -
 is passed, input is read from standard input.
-Directories are traversed recursively and shell globs may be passed through the invoking shell.
+Stdin defaults to JSON unless
+.B --stdin-filepath
+is provided.
+.PP
+Directories are traversed recursively.
+Unsupported files found during directory traversal are skipped.
+Explicit unsupported file arguments are rejected.
+.SH SUPPORTED FORMATS
+.TP
+.B JSON
+.I .json
+.TP
+.B JSONC
+.I .jsonc
+.TP
+.B JSONL
+.I .jsonl, .ndjson
+.TP
+.B YAML
+.I .yaml, .yml
+.TP
+.B TOML
+.I .toml
+.TP
+.B Markdown
+.I .md, .markdown
 .SH OPTIONS
 .TP
 .B --write
@@ -34,13 +56,12 @@ Print files whose formatted output differs from the current contents and exit wi
 .TP
 .B --config PATH
 Load configuration from the specified
-\fBjfc.toml\fR
-file instead of walking upward from the target file or stdin path.
+.B jfc.toml
+file instead of walking upward from each target file or stdin path.
 .TP
 .B --stdin-filepath PATH
-Resolve stdin configuration as if the input originated from
-\fIPATH\fR.
-This is useful when piping content from editors or other tools while still wanting project-local config discovery.
+Resolve stdin configuration and format selection as if the input originated from
+.IR PATH .
 .TP
 .B --help
 Show usage information.
@@ -48,70 +69,94 @@ Show usage information.
 By default,
 .B jfc
 looks for
-\fBjfc.toml\fR
+.B jfc.toml
 starting from the file being formatted and walking upward toward the filesystem root.
 If stdin is used, discovery starts from the current working directory unless
-\fB--stdin-filepath\fR
+.B --stdin-filepath
 is provided.
 .PP
 Supported top-level keys:
 .TP
 .B use_tabs
-Use hard tabs for indentation.
+Use hard tabs for JSON indentation.
+YAML always uses spaces because hard-tab indentation is invalid YAML.
 .TP
 .B tab_width
-Visual width for one indent level.
+Visual width for one indent level and YAML indentation spaces.
 .TP
 .B print_width
-Target width used to decide whether arrays and objects should remain inline when expansion is set to
-\fBauto\fR.
+Target width used to decide whether JSON arrays and objects should remain inline when expansion is set to
+.BR auto .
 .TP
 .B trailing_newline
 Append a final newline when true.
 .TP
 .B sort_keys
-Sort object keys lexicographically when true.
+Sort JSON, JSONC, and JSONL object keys lexicographically when true.
 .TP
 .B array_expand
+JSON array layout.
 One of
-\fBauto\fR,
-\fBalways\fR,
+.BR auto ,
+.BR always ,
 or
-\fBnever\fR.
+.BR never .
 .TP
 .B object_expand
+JSON object layout.
 One of
-\fBauto\fR,
-\fBalways\fR,
+.BR auto ,
+.BR always ,
 or
-\fBnever\fR.
+.BR never .
 .TP
 .B space_after_colon
-Render object members as
-\fB"key": value\fR
+Render JSON object members as
+.B "key": value
 instead of
-\fB"key":value\fR.
+.BR "key":value .
 .TP
 .B space_within_braces
 Add spaces just inside
-\fB{\fR
+.B {
 and
-\fB}\fR
-for inline objects.
+.B }
+for inline JSON objects.
 .TP
 .B space_within_brackets
 Add spaces just inside
-\fB[\fR
+.B [
 and
-\fB]\fR
-for inline arrays.
+.B ]
+for inline JSON arrays.
 .TP
 .B end_of_line
 One of
-\fBlf\fR,
-\fBcrlf\fR,
+.BR lf ,
+.BR crlf ,
 or
-\fBcr\fR.
+.BR cr .
+.SH FORMAT NOTES
+.TP
+.B JSON
+Preserves object key order by default and can sort keys with
+.BR sort_keys .
+.TP
+.B JSONC
+Accepts comments and trailing commas while preserving comments.
+.TP
+.B JSONL
+Treats each non-empty line as one JSON value and reports line-specific parse errors.
+.TP
+.B YAML
+Preserves mapping order and comments through YAML AST formatting.
+.TP
+.B TOML
+Validates TOML and normalizes assignment spacing while preserving comments and order.
+.TP
+.B Markdown
+Conservatively normalizes line endings, blank-line whitespace, final newline, and fenced code block indentation.
+It does not reflow prose.
 .SH EXIT STATUS
 .TP
 .B 0
@@ -119,9 +164,9 @@ Success.
 .TP
 .B 1
 Formatting differences were found during
-\fB--check\fR
+.B --check
 or
-\fB--list-different\fR.
+.BR --list-different .
 .TP
 .B 2
 Parse, configuration, IO, or usage error.
@@ -130,8 +175,8 @@ Parse, configuration, IO, or usage error.
 Format a file to stdout:
 .B jfc package.json
 .TP
-Format stdin:
-.B cat package.json | jfc
+Format Markdown stdin with Markdown inference:
+.B cat README.md | jfc --stdin-filepath README.md
 .TP
 Rewrite files in place:
 .B jfc --write .
@@ -140,39 +185,10 @@ Check formatting in CI:
 .B jfc --check .
 .TP
 Use an explicit config:
-.B jfc --config ./config/jfc.toml data/example.json
-.TP
-Use stdin with project config discovery:
-.B cat data.json | jfc --stdin-filepath apps/api/data.json
+.B jfc --config ./config/jfc.toml data/example.yaml
 .SH FILES
 .TP
 .B jfc.toml
 Project-local formatter configuration.
-.SH COOKBOOK
-.TP
-Use hard tabs:
-.RS
-.nf
-use_tabs = true
-tab_width = 4
-.fi
-.RE
-.TP
-Sort generated JSON deterministically:
-.RS
-.nf
-sort_keys = true
-object_expand = "always"
-array_expand = "always"
-.fi
-.RE
-.TP
-Normalize line endings for cross-platform repositories:
-.RS
-.nf
-end_of_line = "lf"
-trailing_newline = true
-.fi
-.RE
 .SH SEE ALSO
 .BR jq (1)

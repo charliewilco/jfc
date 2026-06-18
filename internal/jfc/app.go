@@ -41,6 +41,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "Usage: jfc [--write|--check|--list-different] [--config path] [--stdin-filepath path] [file ...]\n")
 		fmt.Fprintf(stderr, "       jfc < file.json\n")
+		fmt.Fprintf(stderr, "Supported files: %s\n", supportedExtensionsText())
 	}
 
 	if err := fs.Parse(args); err != nil {
@@ -80,7 +81,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 		return exitError
 	}
 	if len(targets) == 0 {
-		fmt.Fprintln(stderr, "jfc: no JSON files found")
+		fmt.Fprintln(stderr, "jfc: no supported files found")
 		return exitError
 	}
 	if mode == modePrint && len(targets) > 1 {
@@ -98,6 +99,12 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 			hadError = true
 			continue
 		}
+		format, ok := detectFormat(path)
+		if !ok {
+			fmt.Fprintf(stderr, "jfc: %s is not a supported file (%s)\n", path, supportedExtensionsText())
+			hadError = true
+			continue
+		}
 
 		input, err := os.ReadFile(path)
 		if err != nil {
@@ -106,7 +113,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 			continue
 		}
 
-		output, err := formatJSON(input, cfg)
+		output, err := formatDocument(input, format, cfg)
 		if err != nil {
 			fmt.Fprintf(stderr, "jfc: %s: %v\n", path, err)
 			hadError = true
@@ -191,7 +198,17 @@ func runStdin(mode runMode, stdin io.Reader, stdout io.Writer, stderr io.Writer,
 		return exitError
 	}
 
-	output, err := formatJSON(input, cfg)
+	format := FormatJSON
+	if stdinFilepath != "" {
+		detected, ok := detectFormat(stdinFilepath)
+		if !ok {
+			fmt.Fprintf(stderr, "jfc: %s is not a supported file (%s)\n", stdinFilepath, supportedExtensionsText())
+			return exitError
+		}
+		format = detected
+	}
+
+	output, err := formatDocument(input, format, cfg)
 	if err != nil {
 		name := "stdin"
 		if stdinFilepath != "" {
@@ -277,7 +294,7 @@ func appendTarget(path string, seen map[string]struct{}, targets *[]string) erro
 			if entry.IsDir() {
 				return nil
 			}
-			if !strings.EqualFold(filepath.Ext(entry.Name()), ".json") {
+			if _, ok := detectFormat(entry.Name()); !ok {
 				return nil
 			}
 			addUnique(current, seen, targets)
@@ -285,8 +302,8 @@ func appendTarget(path string, seen map[string]struct{}, targets *[]string) erro
 		})
 	}
 
-	if !strings.EqualFold(filepath.Ext(path), ".json") {
-		return fmt.Errorf("%s is not a .json file", path)
+	if _, ok := detectFormat(path); !ok {
+		return fmt.Errorf("%s is not a supported file (%s)", path, supportedExtensionsText())
 	}
 
 	addUnique(path, seen, targets)

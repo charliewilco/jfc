@@ -1,0 +1,4 @@
+root:
+  # keep
+  child: value
+list: [one, two]
