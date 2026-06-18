@@ -1,5 +1,7 @@
 # jfc
 
+swear to god, i thought `jq` just did this, but here we are
+
 `jfc` means either "jesus fucking christ" or "just format correctly".
 
 It is a production-oriented Go CLI for formatting common project metadata and prose files with Prettier-style ergonomics, minus the JavaScript ecosystem. One binary, one nearest `jfc.toml`, predictable output.
