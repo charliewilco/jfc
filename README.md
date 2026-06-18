@@ -104,11 +104,11 @@ end_of_line = "lf"
 
 - `use_tabs`: use hard tabs for JSON indentation. YAML always uses spaces because hard-tab indentation is invalid YAML.
 - `tab_width`: visual width for tabs and YAML indentation spaces
-- `print_width`: target width used for JSON and JSONL `auto` expansion decisions
+- `print_width`: target width used for JSON `auto` expansion decisions
 - `trailing_newline`: append a final newline when true
 - `sort_keys`: sort JSON, JSONC, and JSONL object keys lexicographically when true
-- `array_expand`: JSON and JSONL array layout, one of `"auto"`, `"always"`, or `"never"`
-- `object_expand`: JSON and JSONL object layout, one of `"auto"`, `"always"`, or `"never"`
+- `array_expand`: JSON array layout, one of `"auto"`, `"always"`, or `"never"`
+- `object_expand`: JSON object layout, one of `"auto"`, `"always"`, or `"never"`
 - `space_after_colon`: render JSON and JSONL object members as `"key": value` vs `"key":value`
 - `space_within_braces`: render inline JSON and JSONL objects as `{ "x": 1 }` vs `{"x": 1}`
 - `space_within_brackets`: render inline JSON and JSONL arrays as `[ 1, 2 ]` vs `[1, 2]`
