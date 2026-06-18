@@ -10,7 +10,8 @@ jfc \- format common project files with one nearest TOML config
 .SH DESCRIPTION
 .B jfc
 means either "jesus fucking christ" or "just format correctly".
-It formats common project metadata and prose files with Prettier-style ergonomics, minus the JavaScript ecosystem.
+It conservatively formats common project metadata and Markdown whitespace from a single Go binary.
+Its strongest layout controls are for JSON-family files.
 .PP
 Supported formats are JSON, JSONC, JSONL, YAML, TOML, and Markdown.
 When no file arguments are provided, or when a lone
@@ -38,12 +39,18 @@ Other hidden, generated, vendor, or build directories are not skipped unless the
 .TP
 .B JSONC
 .I .jsonc
+,
+formatted through
+.BR hujson .
 .TP
 .B JSONL
 .I .jsonl, .ndjson
 .TP
 .B YAML
 .I .yaml, .yml
+,
+formatted through
+.BR yaml.v3 .
 .TP
 .B TOML
 .I .toml
@@ -119,7 +126,7 @@ or
 .BR never .
 .TP
 .B space_after_colon
-Render JSON object members as
+Render JSON and JSONL object members as
 .B "key": value
 instead of
 .BR "key":value .
@@ -129,14 +136,14 @@ Add spaces just inside
 .B {
 and
 .B }
-for inline JSON objects.
+for inline JSON and JSONL objects.
 .TP
 .B space_within_brackets
 Add spaces just inside
 .B [
 and
 .B ]
-for inline JSON arrays.
+for inline JSON and JSONL arrays.
 .TP
 .B end_of_line
 One of
@@ -147,24 +154,32 @@ or
 .SH FORMAT NOTES
 .TP
 .B JSON
-Preserves object key order by default and can sort keys with
+Uses jfc's structured renderer, preserves object key order by default, and can sort keys with
 .BR sort_keys .
 .TP
 .B JSONC
-Accepts comments and trailing commas while preserving comments.
+Accepts comments and trailing commas through
+.BR hujson .
+Jfc can sort object keys, but JSON layout options do not fully control
+.B hujson
+spacing.
 .TP
 .B JSONL
-Treats each non-empty line as one JSON value and reports line-specific parse errors.
+Treats each non-empty line as one JSON value, reports line-specific parse errors, and renders records through the JSON formatter in inline mode.
 .TP
 .B YAML
-Preserves mapping order and comments through YAML AST formatting.
+Uses
+.B yaml.v3
+AST formatting.
+Jfc controls indentation and output conventions but does not expose a full YAML style system.
 .TP
 .B TOML
 Validates TOML and normalizes assignment spacing while preserving comments and order.
+It does not rewrite tables, arrays, or prose in comments.
 .TP
 .B Markdown
 Conservatively normalizes line endings, blank-line whitespace, final newline, and fenced code block indentation.
-It does not reflow prose.
+It does not reflow prose or rewrite the Markdown AST.
 .SH EXIT STATUS
 .TP
 .B 0
