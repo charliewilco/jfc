@@ -146,7 +146,37 @@ func TestLoadConfigFileRejectsTables(t *testing.T) {
 	}
 
 	_, err := loadConfigFile(path)
-	if err == nil || !strings.Contains(err.Error(), "unknown config key") {
+	if err == nil || !strings.Contains(err.Error(), "tables are not supported") {
+		t.Fatalf("expected table error, got %v", err)
+	}
+}
+
+func TestLoadConfigFileRejectsEmptyTableNamedLikeOption(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, defaultConfigName)
+	if err := os.WriteFile(path, []byte("[use_tabs]\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := loadConfigFile(path)
+	if err == nil || !strings.Contains(err.Error(), "tables are not supported") {
+		t.Fatalf("expected table error, got %v", err)
+	}
+}
+
+func TestLoadConfigFileRejectsArrayOfTables(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, defaultConfigName)
+	if err := os.WriteFile(path, []byte("[[use_tabs]]\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := loadConfigFile(path)
+	if err == nil || !strings.Contains(err.Error(), "tables are not supported") {
 		t.Fatalf("expected table error, got %v", err)
 	}
 }

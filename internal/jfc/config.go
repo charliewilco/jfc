@@ -1,6 +1,7 @@
 package jfc
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -171,15 +172,17 @@ func findConfigPath(startDir string) (string, bool, error) {
 }
 
 func loadConfigFile(path string) (Config, error) {
-	file, err := os.Open(path)
+	input, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("load config %s: %w", path, err)
 	}
-	defer file.Close()
+	if err := rejectConfigTables(path, input); err != nil {
+		return Config{}, err
+	}
 
 	cfg := DefaultConfig()
 	var raw configFile
-	decoder := toml.NewDecoder(file)
+	decoder := toml.NewDecoder(bytes.NewReader(input))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&raw); err != nil {
 		return Config{}, formatConfigDecodeError(path, err)
@@ -187,6 +190,35 @@ func loadConfigFile(path string) (Config, error) {
 
 	applyConfigFile(&cfg, raw)
 	return cfg, validateConfig(cfg)
+}
+
+func rejectConfigTables(path string, input []byte) error {
+	var raw map[string]any
+	if err := toml.Unmarshal(input, &raw); err != nil {
+		return formatConfigDecodeError(path, err)
+	}
+	for key, value := range raw {
+		if isTOMLTableValue(value) {
+			return fmt.Errorf("%s: tables are not supported; use top-level key/value pairs only near %q", path, key)
+		}
+	}
+	return nil
+}
+
+func isTOMLTableValue(value any) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		return true
+	case []map[string]any:
+		return true
+	case []any:
+		for _, item := range typed {
+			if isTOMLTableValue(item) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func applyConfigFile(cfg *Config, raw configFile) {
