@@ -1,13 +1,14 @@
 package jfc
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
+
+	toml "github.com/pelletier/go-toml/v2"
 )
 
 const defaultConfigName = "jfc.toml"
@@ -40,6 +41,20 @@ type Config struct {
 	SpaceWithinBraces   bool
 	SpaceWithinBrackets bool
 	EndOfLine           EndOfLine
+}
+
+type configFile struct {
+	UseTabs             *bool   `toml:"use_tabs"`
+	TabWidth            *int    `toml:"tab_width"`
+	PrintWidth          *int    `toml:"print_width"`
+	TrailingNewline     *bool   `toml:"trailing_newline"`
+	SortKeys            *bool   `toml:"sort_keys"`
+	ArrayExpand         *string `toml:"array_expand"`
+	ObjectExpand        *string `toml:"object_expand"`
+	SpaceAfterColon     *bool   `toml:"space_after_colon"`
+	SpaceWithinBraces   *bool   `toml:"space_within_braces"`
+	SpaceWithinBrackets *bool   `toml:"space_within_brackets"`
+	EndOfLine           *string `toml:"end_of_line"`
 }
 
 func DefaultConfig() Config {
@@ -157,127 +172,89 @@ func findConfigPath(startDir string) (string, bool, error) {
 }
 
 func loadConfigFile(path string) (Config, error) {
-	file, err := os.Open(path)
+	input, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("load config %s: %w", path, err)
 	}
-	defer file.Close()
+	if err := rejectConfigTables(path, input); err != nil {
+		return Config{}, err
+	}
 
 	cfg := DefaultConfig()
-	scanner := bufio.NewScanner(file)
-	lineNumber := 0
-	seen := make(map[string]struct{})
-
-	for scanner.Scan() {
-		lineNumber++
-		line := strings.TrimSpace(stripTOMLComment(scanner.Text()))
-		if line == "" {
-			continue
-		}
-		if strings.HasPrefix(line, "[") {
-			return Config{}, fmt.Errorf("%s:%d: tables are not supported; use top-level key/value pairs only", path, lineNumber)
-		}
-
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			return Config{}, fmt.Errorf("%s:%d: expected key = value", path, lineNumber)
-		}
-
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		if key == "" || value == "" {
-			return Config{}, fmt.Errorf("%s:%d: expected key = value", path, lineNumber)
-		}
-		if _, exists := seen[key]; exists {
-			return Config{}, fmt.Errorf("%s:%d: duplicate key %q", path, lineNumber, key)
-		}
-		seen[key] = struct{}{}
-
-		if err := applyConfigValue(&cfg, key, value); err != nil {
-			return Config{}, fmt.Errorf("%s:%d: %w", path, lineNumber, err)
-		}
+	var raw configFile
+	decoder := toml.NewDecoder(bytes.NewReader(input))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&raw); err != nil {
+		return Config{}, formatConfigDecodeError(path, err)
 	}
 
-	if err := scanner.Err(); err != nil {
-		return Config{}, fmt.Errorf("read config %s: %w", path, err)
-	}
-
+	applyConfigFile(&cfg, raw)
 	return cfg, validateConfig(cfg)
 }
 
-func applyConfigValue(cfg *Config, key string, rawValue string) error {
-	switch key {
-	case "use_tabs":
-		value, err := parseTOMLBool(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.UseTabs = value
-	case "tab_width":
-		value, err := parseTOMLInt(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.TabWidth = value
-	case "print_width":
-		value, err := parseTOMLInt(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.PrintWidth = value
-	case "trailing_newline":
-		value, err := parseTOMLBool(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.TrailingNewline = value
-	case "sort_keys":
-		value, err := parseTOMLBool(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.SortKeys = value
-	case "array_expand":
-		value, err := parseTOMLString(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.ArrayExpand = ExpandMode(strings.ToLower(value))
-	case "object_expand":
-		value, err := parseTOMLString(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.ObjectExpand = ExpandMode(strings.ToLower(value))
-	case "space_after_colon":
-		value, err := parseTOMLBool(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.SpaceAfterColon = value
-	case "space_within_braces":
-		value, err := parseTOMLBool(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.SpaceWithinBraces = value
-	case "space_within_brackets":
-		value, err := parseTOMLBool(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.SpaceWithinBrackets = value
-	case "end_of_line":
-		value, err := parseTOMLString(rawValue)
-		if err != nil {
-			return err
-		}
-		cfg.EndOfLine = EndOfLine(strings.ToLower(value))
-	default:
-		return fmt.Errorf("unknown config key %q", key)
+func rejectConfigTables(path string, input []byte) error {
+	var raw map[string]any
+	if err := toml.Unmarshal(input, &raw); err != nil {
+		return formatConfigDecodeError(path, err)
 	}
-
+	for key, value := range raw {
+		if isTOMLTableValue(value) {
+			return fmt.Errorf("%s: tables are not supported; use top-level key/value pairs only near %q", path, key)
+		}
+	}
 	return nil
+}
+
+func isTOMLTableValue(value any) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		return true
+	case []map[string]any:
+		return true
+	case []any:
+		for _, item := range typed {
+			if isTOMLTableValue(item) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func applyConfigFile(cfg *Config, raw configFile) {
+	if raw.UseTabs != nil {
+		cfg.UseTabs = *raw.UseTabs
+	}
+	if raw.TabWidth != nil {
+		cfg.TabWidth = *raw.TabWidth
+	}
+	if raw.PrintWidth != nil {
+		cfg.PrintWidth = *raw.PrintWidth
+	}
+	if raw.TrailingNewline != nil {
+		cfg.TrailingNewline = *raw.TrailingNewline
+	}
+	if raw.SortKeys != nil {
+		cfg.SortKeys = *raw.SortKeys
+	}
+	if raw.ArrayExpand != nil {
+		cfg.ArrayExpand = ExpandMode(strings.ToLower(*raw.ArrayExpand))
+	}
+	if raw.ObjectExpand != nil {
+		cfg.ObjectExpand = ExpandMode(strings.ToLower(*raw.ObjectExpand))
+	}
+	if raw.SpaceAfterColon != nil {
+		cfg.SpaceAfterColon = *raw.SpaceAfterColon
+	}
+	if raw.SpaceWithinBraces != nil {
+		cfg.SpaceWithinBraces = *raw.SpaceWithinBraces
+	}
+	if raw.SpaceWithinBrackets != nil {
+		cfg.SpaceWithinBrackets = *raw.SpaceWithinBrackets
+	}
+	if raw.EndOfLine != nil {
+		cfg.EndOfLine = EndOfLine(strings.ToLower(*raw.EndOfLine))
+	}
 }
 
 func validateConfig(cfg Config) error {
@@ -305,70 +282,15 @@ func validateConfig(cfg Config) error {
 	return nil
 }
 
-func parseTOMLBool(raw string) (bool, error) {
-	switch raw {
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
-		return false, fmt.Errorf("expected boolean, got %q", raw)
-	}
-}
-
-func parseTOMLInt(raw string) (int, error) {
-	value, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, fmt.Errorf("expected integer, got %q", raw)
-	}
-	return value, nil
-}
-
-func parseTOMLString(raw string) (string, error) {
-	if len(raw) < 2 {
-		return "", fmt.Errorf("expected quoted string, got %q", raw)
-	}
-
-	switch raw[0] {
-	case '"':
-		value, err := strconv.Unquote(raw)
-		if err != nil {
-			return "", fmt.Errorf("invalid quoted string %q", raw)
-		}
-		return value, nil
-	case '\'':
-		if raw[len(raw)-1] != '\'' {
-			return "", fmt.Errorf("invalid literal string %q", raw)
-		}
-		return raw[1 : len(raw)-1], nil
-	default:
-		return "", fmt.Errorf("expected quoted string, got %q", raw)
-	}
-}
-
-func stripTOMLComment(line string) string {
-	var (
-		inBasicString   bool
-		inLiteralString bool
-		escaped         bool
-	)
-
-	for i, r := range line {
-		switch {
-		case escaped:
-			escaped = false
-		case inBasicString && r == '\\':
-			escaped = true
-		case !inLiteralString && r == '"':
-			inBasicString = !inBasicString
-		case !inBasicString && r == '\'':
-			inLiteralString = !inLiteralString
-		case !inBasicString && !inLiteralString && r == '#':
-			return line[:i]
+func formatConfigDecodeError(path string, err error) error {
+	var strictErr *toml.StrictMissingError
+	if errors.As(err, &strictErr) && len(strictErr.Errors) > 0 {
+		key := strictErr.Errors[0].Key()
+		if len(key) > 0 {
+			return fmt.Errorf("%s: unknown config key %q", path, strings.Join(key, "."))
 		}
 	}
-
-	return line
+	return fmt.Errorf("%s: %w", path, err)
 }
 
 func (c Config) indentUnit() string {
