@@ -1,0 +1,35 @@
+# Quoted and dotted keys
+"127.0.0.1" = "loopback"
+site."google.com" = "search"
+servers."alpha=blue".role = "api"
+
+# Numeric literal forms
+answer = 42
+underscored = 1_000_000
+hex = 0xDEADBEEF
+oct = 0o755
+bin = 0b11010110
+ratio = +1.25e-2
+infinite = inf
+not_a_number = nan
+
+# Dates and times
+offset = 2026-06-20T12:34:56-04:00
+local_date = 2026-06-20
+local_time = 12:34:56
+
+# Arrays and inline tables
+matrix = [[1,2],[3,4]]
+points = [{x=1,y=2},{x=3,y=4}]
+
+[servers."beta=green"]
+ip = "10.0.0.1"
+tags = ["api","edge"]
+
+[strings]
+basic = "hash # and equals = stay inside"
+literal = 'C:\Users\Charlie\jfc'
+multiline = """
+alpha=beta
+# not a comment
+"""

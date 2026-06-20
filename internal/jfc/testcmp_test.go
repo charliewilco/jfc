@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	toml "github.com/pelletier/go-toml/v2"
 	"github.com/yuin/goldmark"
 )
@@ -69,7 +70,7 @@ func assertTOMLSemanticallyEqual(t testing.TB, want []byte, got []byte) {
 		t.Fatalf("parse actual TOML: %v", err)
 	}
 
-	if diff := cmp.Diff(wantValue, gotValue); diff != "" {
+	if diff := cmp.Diff(wantValue, gotValue, cmpopts.EquateNaNs()); diff != "" {
 		t.Fatalf("TOML semantic mismatch (-want +got):\n%s", diff)
 	}
 }
