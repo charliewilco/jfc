@@ -130,6 +130,40 @@ func TestFormatTOMLPreservesEqualsInsideStringsAndComments(t *testing.T) {
 	assertStringEqual(t, expected, string(output))
 }
 
+func TestFormatTOMLPreservesMultilineStringBodies(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(strings.Join([]string{
+		`basic="""`,
+		`alpha=beta  `,
+		`# not a comment`,
+		`"""  `,
+		`literal='''`,
+		`gamma=delta	`,
+		`'''`,
+		`after="done"`,
+		``,
+	}, "\n"))
+	output, err := formatTOML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatTOML returned error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		`basic = """`,
+		`alpha=beta  `,
+		`# not a comment`,
+		`"""  `,
+		`literal = '''`,
+		`gamma=delta	`,
+		`'''`,
+		`after = "done"`,
+		``,
+	}, "\n")
+	assertStringEqual(t, expected, string(output))
+	assertTOMLSemanticallyEqual(t, input, output)
+}
+
 func TestFormatMarkdownConservativelyNormalizesWhitespace(t *testing.T) {
 	t.Parallel()
 

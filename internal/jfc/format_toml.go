@@ -20,12 +20,24 @@ func formatTOML(input []byte, config Config) ([]byte, error) {
 
 	text := normalizeLineEndingsToLF(string(input))
 	lines := strings.Split(text, "\n")
+	state := tomlMultilineNone
 	for i, line := range lines {
-		lines[i] = formatTOMLLine(line)
+		if state == tomlMultilineNone {
+			lines[i] = formatTOMLLine(line)
+		}
+		state = nextTOMLMultilineState(line, state)
 	}
 
 	return applyOutputConventions(strings.Join(lines, "\n"), config), nil
 }
+
+type tomlMultilineState int
+
+const (
+	tomlMultilineNone tomlMultilineState = iota
+	tomlMultilineBasic
+	tomlMultilineLiteral
+)
 
 func formatTOMLLine(line string) string {
 	trimmedRight := strings.TrimRightFunc(line, unicode.IsSpace)
@@ -40,6 +52,64 @@ func formatTOMLLine(line string) string {
 		return trimmedRight
 	}
 	return before + " = " + after
+}
+
+func nextTOMLMultilineState(line string, state tomlMultilineState) tomlMultilineState {
+	inBasicString := false
+	inLiteralString := false
+	escaped := false
+
+	for i := 0; i < len(line); i++ {
+		switch state {
+		case tomlMultilineBasic:
+			if strings.HasPrefix(line[i:], `"""`) && !hasOddBackslashRun(line[:i]) {
+				state = tomlMultilineNone
+				i += 2
+			}
+			continue
+		case tomlMultilineLiteral:
+			if strings.HasPrefix(line[i:], `'''`) {
+				state = tomlMultilineNone
+				i += 2
+			}
+			continue
+		}
+
+		ch := line[i]
+		switch {
+		case escaped:
+			escaped = false
+		case inBasicString && ch == '\\':
+			escaped = true
+		case inBasicString && ch == '"':
+			inBasicString = false
+		case inLiteralString && ch == '\'':
+			inLiteralString = false
+		case inBasicString || inLiteralString:
+		case ch == '#':
+			return state
+		case strings.HasPrefix(line[i:], `"""`):
+			state = tomlMultilineBasic
+			i += 2
+		case strings.HasPrefix(line[i:], `'''`):
+			state = tomlMultilineLiteral
+			i += 2
+		case ch == '"':
+			inBasicString = true
+		case ch == '\'':
+			inLiteralString = true
+		}
+	}
+
+	return state
+}
+
+func hasOddBackslashRun(prefix string) bool {
+	count := 0
+	for i := len(prefix) - 1; i >= 0 && prefix[i] == '\\'; i-- {
+		count++
+	}
+	return count%2 == 1
 }
 
 func findTOMLEquals(line string) int {

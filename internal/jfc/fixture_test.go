@@ -24,6 +24,7 @@ func TestFormatDocumentFixtures(t *testing.T) {
 		{name: "yaml", input: "yaml.input.yaml", golden: "yaml.golden.yaml"},
 		{name: "workflow_yaml", input: "workflow.input.yaml", golden: "workflow.golden.yaml"},
 		{name: "toml", input: "toml.input.toml", golden: "toml.golden.toml"},
+		{name: "toml_multiline", input: "toml_multiline.input.toml", golden: "toml_multiline.golden.toml"},
 		{name: "pyproject_toml", input: "pyproject.input.toml", golden: "pyproject.golden.toml"},
 		{name: "markdown", input: "markdown.input.md", golden: "markdown.golden.md"},
 		{name: "markdown_fences", input: "markdown_fences.input.md", golden: "markdown_fences.golden.md"},

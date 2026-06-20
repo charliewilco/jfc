@@ -1,0 +1,9 @@
+name = "multiline"
+basic = """
+alpha=beta  
+# not a comment
+"""
+literal = '''
+gamma=delta	
+'''
+inline = {key="value"}
