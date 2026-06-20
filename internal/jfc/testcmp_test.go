@@ -3,6 +3,7 @@ package jfc
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -21,23 +22,38 @@ func assertStringEqual(t testing.TB, want string, got string) {
 func assertJSONSemanticallyEqual(t testing.TB, want []byte, got []byte) {
 	t.Helper()
 
-	var wantValue any
-	wantDecoder := json.NewDecoder(bytes.NewReader(want))
-	wantDecoder.UseNumber()
-	if err := wantDecoder.Decode(&wantValue); err != nil {
+	wantValue, err := decodeStrictJSON(want)
+	if err != nil {
 		t.Fatalf("parse expected JSON: %v", err)
 	}
 
-	var gotValue any
-	gotDecoder := json.NewDecoder(bytes.NewReader(got))
-	gotDecoder.UseNumber()
-	if err := gotDecoder.Decode(&gotValue); err != nil {
+	gotValue, err := decodeStrictJSON(got)
+	if err != nil {
 		t.Fatalf("parse actual JSON: %v", err)
 	}
 
 	if diff := cmp.Diff(wantValue, gotValue); diff != "" {
 		t.Fatalf("JSON semantic mismatch (-want +got):\n%s", diff)
 	}
+}
+
+func decodeStrictJSON(input []byte) (any, error) {
+	decoder := json.NewDecoder(bytes.NewReader(input))
+	decoder.UseNumber()
+
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, err
+	}
+
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return nil, io.ErrUnexpectedEOF
+		}
+		return nil, err
+	}
+	return value, nil
 }
 
 func assertTOMLSemanticallyEqual(t testing.TB, want []byte, got []byte) {

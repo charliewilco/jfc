@@ -1,6 +1,58 @@
 package jfc
 
-import "testing"
+import (
+	"testing"
+	"unicode/utf8"
+)
+
+func FuzzFormatJSONMatchesStrictDecoderAcceptance(f *testing.F) {
+	for _, seed := range []string{
+		`null`,
+		`true`,
+		`123.45e-6`,
+		`"hello\nworld"`,
+		`{"z":1,"a":[3,2]}`,
+		`{"unicode":"Jos\u00e9","escaped":"<>&","nested":{"items":[true,false,null]}}`,
+		`[{"id":1},{"id":2,"tags":["a","b"]}]`,
+		``,
+		`{"n": 01}`,
+		`+1`,
+		`1.`,
+		`1e`,
+		`tru`,
+		`undefined`,
+		`"abc`,
+		"\"a\nb\"",
+		"\"a\tb\"",
+		`"\x"`,
+		`"\u12xz"`,
+		`{} true`,
+		"\"\xff\"",
+	} {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, input string) {
+		if !utf8.ValidString(input) {
+			if _, err := formatJSON([]byte(input), DefaultConfig()); err == nil {
+				t.Fatalf("formatJSON accepted invalid UTF-8 input:\n%s", input)
+			}
+			return
+		}
+
+		_, decoderErr := decodeStrictJSON([]byte(input))
+		output, formatErr := formatJSON([]byte(input), DefaultConfig())
+
+		switch {
+		case decoderErr == nil && formatErr != nil:
+			t.Fatalf("formatJSON rejected input accepted by strict decoder: %v\ninput:\n%s", formatErr, input)
+		case decoderErr != nil && formatErr == nil:
+			t.Fatalf("formatJSON accepted input rejected by strict decoder: %v\ninput:\n%s\noutput:\n%s", decoderErr, input, output)
+		case decoderErr == nil:
+			assertJSONSemanticallyEqual(t, []byte(input), output)
+		}
+	})
+}
 
 func FuzzFormatJSONPreservesSemanticsAndIsIdempotent(f *testing.F) {
 	for _, seed := range []string{
