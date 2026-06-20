@@ -103,7 +103,7 @@ space_after_colon = true
 space_within_braces = false
 space_within_brackets = false
 end_of_line = "lf"
-ignore = ["dist/**", "*.generated.json"]
+ignore = ["dist", "*.generated.json"]
 ```
 
 ### Config Reference
@@ -119,7 +119,7 @@ ignore = ["dist/**", "*.generated.json"]
 - `space_within_braces`: render inline JSON and JSONL objects as `{ "x": 1 }` vs `{"x": 1}`
 - `space_within_brackets`: render inline JSON and JSONL arrays as `[ 1, 2 ]` vs `[1, 2]`
 - `end_of_line`: one of `"lf"`, `"crlf"`, or `"cr"`
-- `ignore`: glob patterns, resolved relative to the config file, for files that `jfc` should skip
+- `ignore`: glob patterns, resolved relative to the config file, for files that `jfc` should skip; patterns without `/` match any path segment
 
 ## Format Notes
 

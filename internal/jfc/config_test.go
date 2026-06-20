@@ -140,6 +140,38 @@ func TestLoadConfigFileRejectsInvalidIgnorePattern(t *testing.T) {
 	}
 }
 
+func TestConfigIgnorePatternMatchesPathSegment(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cfg := DefaultConfig()
+	cfg.Ignore = []string{"dist", "*.generated.json"}
+	cfg.ignoreBaseDir = root
+
+	ignoredDirFile := filepath.Join(root, "dist", "ignored.json")
+	ignoredNestedDirFile := filepath.Join(root, "packages", "dist", "ignored.json")
+	ignoredGeneratedFile := filepath.Join(root, "api.generated.json")
+	checkedFile := filepath.Join(root, "src", "api.json")
+
+	for _, path := range []string{ignoredDirFile, ignoredNestedDirFile, ignoredGeneratedFile} {
+		ignored, err := cfg.ignores(path)
+		if err != nil {
+			t.Fatalf("ignores(%q) returned error: %v", path, err)
+		}
+		if !ignored {
+			t.Fatalf("expected %q to be ignored", path)
+		}
+	}
+
+	ignored, err := cfg.ignores(checkedFile)
+	if err != nil {
+		t.Fatalf("ignores(%q) returned error: %v", checkedFile, err)
+	}
+	if ignored {
+		t.Fatalf("expected %q to be checked", checkedFile)
+	}
+}
+
 func TestLoadConfigFileAllowsHashInsideStrings(t *testing.T) {
 	t.Parallel()
 

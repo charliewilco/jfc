@@ -40,7 +40,7 @@ func BenchmarkFormatTOMLProjectConfig(b *testing.B) {
 		``,
 		`[tool.jfc]`,
 		`sort_keys=true`,
-		`ignore=["dist/**", "*.generated.json"]`,
+		`ignore=["dist", "*.generated.json"]`,
 		``,
 		`[[tool.jfc.fixture]]`,
 		`name="package"`,

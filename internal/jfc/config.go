@@ -323,7 +323,6 @@ func (c Config) ignores(filePath string) (bool, error) {
 		}
 	}
 	relativePath = filepath.ToSlash(relativePath)
-	base := path.Base(relativePath)
 
 	for _, pattern := range c.Ignore {
 		slashPattern := filepath.ToSlash(pattern)
@@ -338,12 +337,14 @@ func (c Config) ignores(filePath string) (bool, error) {
 			continue
 		}
 
-		matched, err := path.Match(slashPattern, base)
-		if err != nil {
-			return false, fmt.Errorf("invalid ignore pattern %q: %w", pattern, err)
-		}
-		if matched {
-			return true, nil
+		for _, segment := range pathSegments(relativePath) {
+			matched, err := path.Match(slashPattern, segment)
+			if err != nil {
+				return false, fmt.Errorf("invalid ignore pattern %q: %w", pattern, err)
+			}
+			if matched {
+				return true, nil
+			}
 		}
 	}
 

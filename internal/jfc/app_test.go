@@ -261,7 +261,7 @@ func TestRunCheckSkipsIgnoredConfigPaths(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(ignoredDir), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	config := "ignore = [\"dist/**\", \"*.generated.json\"]\n"
+	config := "ignore = [\"dist\", \"*.generated.json\"]\n"
 	if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte(config), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
