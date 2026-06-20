@@ -26,9 +26,11 @@ func TestFormatDocumentFixtures(t *testing.T) {
 		{name: "toml", input: "toml.input.toml", golden: "toml.golden.toml"},
 		{name: "toml_multiline", input: "toml_multiline.input.toml", golden: "toml_multiline.golden.toml"},
 		{name: "pyproject_toml", input: "pyproject.input.toml", golden: "pyproject.golden.toml"},
+		{name: "cargo_toml", input: "cargo.input.toml", golden: "cargo.golden.toml"},
 		{name: "markdown", input: "markdown.input.md", golden: "markdown.golden.md"},
 		{name: "markdown_fences", input: "markdown_fences.input.md", golden: "markdown_fences.golden.md"},
 		{name: "readme_markdown", input: "readme.input.md", golden: "readme.golden.md"},
+		{name: "changelog_markdown", input: "changelog.input.md", golden: "changelog.golden.md"},
 	}
 
 	for _, fixture := range fixtures {

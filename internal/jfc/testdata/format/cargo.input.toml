@@ -1,0 +1,22 @@
+[package]
+name="jfc"
+version="0.1.0"
+edition="2021"
+license="MIT"
+repository="https://github.com/charliewilco/jfc"
+description="format common project files"
+   
+[dependencies]
+serde={version="1.0",features=["derive"]}
+toml="0.8"
+
+[features]
+default=["cli"]
+cli=[]
+
+[target.'cfg(unix)'.dependencies]
+libc="0.2"
+
+[workspace]
+members=["crates/core","crates/cli"]
+resolver="2"
