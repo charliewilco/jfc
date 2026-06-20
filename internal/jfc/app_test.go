@@ -149,6 +149,47 @@ func TestRunCheckReturnsErrorWhenAnyTargetCannotFormat(t *testing.T) {
 	}
 }
 
+func TestRunCheckSkipsIgnoredConfigPaths(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	ignoredDir := filepath.Join(root, "dist", "ignored.json")
+	ignoredGenerated := filepath.Join(root, "api.generated.json")
+	checked := filepath.Join(root, "checked.json")
+	if err := os.MkdirAll(filepath.Dir(ignoredDir), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	config := "ignore = [\"dist/**\", \"*.generated.json\"]\n"
+	if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte(config), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	for _, path := range []string{ignoredDir, ignoredGenerated, checked} {
+		if err := os.WriteFile(path, []byte(`{"x":1}`), 0o644); err != nil {
+			t.Fatalf("write json: %v", err)
+		}
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stdout = %q, stderr = %q", exitCode, exitDiff, stdout.String(), stderr.String())
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, checked) {
+		t.Fatalf("expected checked path in stdout, got %q", output)
+	}
+	if strings.Contains(output, ignoredDir) || strings.Contains(output, ignoredGenerated) {
+		t.Fatalf("expected ignored paths to be skipped, got %q", output)
+	}
+	if stderr.String() != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
 func TestRunListDifferentTraversesDirectories(t *testing.T) {
 	t.Parallel()
 

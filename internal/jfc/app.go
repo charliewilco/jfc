@@ -100,6 +100,15 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 			hadError = true
 			continue
 		}
+		ignored, err := cfg.ignores(path)
+		if err != nil {
+			fmt.Fprintf(stderr, "jfc: %s\n", err)
+			hadError = true
+			continue
+		}
+		if ignored {
+			continue
+		}
 		format, ok := detectFormat(path)
 		if !ok {
 			fmt.Fprintf(stderr, "jfc: %s is not a supported file (%s)\n", path, supportedExtensionsText())

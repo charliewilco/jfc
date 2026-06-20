@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	toml "github.com/pelletier/go-toml/v2"
@@ -41,20 +43,23 @@ type Config struct {
 	SpaceWithinBraces   bool
 	SpaceWithinBrackets bool
 	EndOfLine           EndOfLine
+	Ignore              []string
+	ignoreBaseDir       string
 }
 
 type configFile struct {
-	UseTabs             *bool   `toml:"use_tabs"`
-	TabWidth            *int    `toml:"tab_width"`
-	PrintWidth          *int    `toml:"print_width"`
-	TrailingNewline     *bool   `toml:"trailing_newline"`
-	SortKeys            *bool   `toml:"sort_keys"`
-	ArrayExpand         *string `toml:"array_expand"`
-	ObjectExpand        *string `toml:"object_expand"`
-	SpaceAfterColon     *bool   `toml:"space_after_colon"`
-	SpaceWithinBraces   *bool   `toml:"space_within_braces"`
-	SpaceWithinBrackets *bool   `toml:"space_within_brackets"`
-	EndOfLine           *string `toml:"end_of_line"`
+	UseTabs             *bool    `toml:"use_tabs"`
+	TabWidth            *int     `toml:"tab_width"`
+	PrintWidth          *int     `toml:"print_width"`
+	TrailingNewline     *bool    `toml:"trailing_newline"`
+	SortKeys            *bool    `toml:"sort_keys"`
+	ArrayExpand         *string  `toml:"array_expand"`
+	ObjectExpand        *string  `toml:"object_expand"`
+	SpaceAfterColon     *bool    `toml:"space_after_colon"`
+	SpaceWithinBraces   *bool    `toml:"space_within_braces"`
+	SpaceWithinBrackets *bool    `toml:"space_within_brackets"`
+	EndOfLine           *string  `toml:"end_of_line"`
+	Ignore              []string `toml:"ignore"`
 }
 
 func DefaultConfig() Config {
@@ -189,6 +194,7 @@ func loadConfigFile(path string) (Config, error) {
 	}
 
 	applyConfigFile(&cfg, raw)
+	cfg.ignoreBaseDir = filepath.Dir(path)
 	return cfg, validateConfig(cfg)
 }
 
@@ -255,6 +261,9 @@ func applyConfigFile(cfg *Config, raw configFile) {
 	if raw.EndOfLine != nil {
 		cfg.EndOfLine = EndOfLine(strings.ToLower(*raw.EndOfLine))
 	}
+	if raw.Ignore != nil {
+		cfg.Ignore = slices.Clone(raw.Ignore)
+	}
 }
 
 func validateConfig(cfg Config) error {
@@ -279,7 +288,66 @@ func validateConfig(cfg Config) error {
 	default:
 		return fmt.Errorf("end_of_line must be one of %q, %q, or %q", EndOfLineLF, EndOfLineCRLF, EndOfLineCR)
 	}
+	for _, pattern := range cfg.Ignore {
+		if err := validateIgnorePattern(pattern); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func validateIgnorePattern(pattern string) error {
+	if pattern == "" {
+		return fmt.Errorf("ignore patterns cannot be empty")
+	}
+	for _, segment := range strings.Split(filepath.ToSlash(pattern), "/") {
+		if segment == "" || segment == "**" {
+			continue
+		}
+		if _, err := path.Match(segment, ""); err != nil {
+			return fmt.Errorf("invalid ignore pattern %q: %w", pattern, err)
+		}
+	}
+	return nil
+}
+
+func (c Config) ignores(filePath string) (bool, error) {
+	if len(c.Ignore) == 0 {
+		return false, nil
+	}
+
+	relativePath := filepath.Clean(filePath)
+	if c.ignoreBaseDir != "" {
+		if rel, err := filepath.Rel(c.ignoreBaseDir, filePath); err == nil && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".." {
+			relativePath = rel
+		}
+	}
+	relativePath = filepath.ToSlash(relativePath)
+	base := path.Base(relativePath)
+
+	for _, pattern := range c.Ignore {
+		slashPattern := filepath.ToSlash(pattern)
+		if strings.Contains(slashPattern, "/") {
+			matched, err := matchRecursiveGlob(slashPattern, relativePath)
+			if err != nil {
+				return false, fmt.Errorf("invalid ignore pattern %q: %w", pattern, err)
+			}
+			if matched {
+				return true, nil
+			}
+			continue
+		}
+
+		matched, err := path.Match(slashPattern, base)
+		if err != nil {
+			return false, fmt.Errorf("invalid ignore pattern %q: %w", pattern, err)
+		}
+		if matched {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func formatConfigDecodeError(path string, err error) error {

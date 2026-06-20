@@ -3,6 +3,7 @@ package jfc
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -24,6 +25,7 @@ func TestLoadConfigFileParsesSupportedSchema(t *testing.T) {
 		"space_within_braces = true",
 		"space_within_brackets = true",
 		"end_of_line = \"crlf\" # normalize output for Windows",
+		"ignore = [\"dist/**\", \"*.generated.json\"]",
 	}, "\n")
 	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
@@ -45,6 +47,9 @@ func TestLoadConfigFileParsesSupportedSchema(t *testing.T) {
 	}
 	if cfg.EndOfLine != EndOfLineCRLF {
 		t.Fatalf("unexpected end_of_line: %q", cfg.EndOfLine)
+	}
+	if !slices.Equal(cfg.Ignore, []string{"dist/**", "*.generated.json"}) {
+		t.Fatalf("unexpected ignore patterns: %+v", cfg.Ignore)
 	}
 }
 
@@ -117,6 +122,21 @@ func TestLoadConfigFileRejectsInvalidValue(t *testing.T) {
 	_, err := loadConfigFile(path)
 	if err == nil || !strings.Contains(err.Error(), "tab_width must be greater than zero") {
 		t.Fatalf("expected invalid value error, got %v", err)
+	}
+}
+
+func TestLoadConfigFileRejectsInvalidIgnorePattern(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, defaultConfigName)
+	if err := os.WriteFile(path, []byte("ignore = [\"[\"]\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := loadConfigFile(path)
+	if err == nil || !strings.Contains(err.Error(), "invalid ignore pattern") {
+		t.Fatalf("expected invalid ignore pattern error, got %v", err)
 	}
 }
 

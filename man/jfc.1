@@ -23,6 +23,11 @@ is provided.
 .PP
 Directories are traversed recursively.
 Unsupported files found during directory traversal are skipped.
+Paths matched by
+.B ignore
+patterns in
+.B jfc.toml
+are also skipped.
 Explicit unsupported file arguments are rejected.
 .PP
 Directory traversal does not follow symlinked directories or symlinked files.
@@ -151,6 +156,14 @@ One of
 .BR crlf ,
 or
 .BR cr .
+.TP
+.B ignore
+Glob patterns, resolved relative to the config file, for files that
+.B jfc
+should skip.
+Patterns may use
+.B **
+for recursive matches.
 .SH FORMAT NOTES
 .TP
 .B JSON
