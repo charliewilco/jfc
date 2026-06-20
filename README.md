@@ -195,7 +195,7 @@ just check
 
 which currently executes:
 
-- `go test ./...`
+- `go tool gotestsum --format testname -- -count=1 <packages with tests>`
 - `go build ./...`
 
 ## Performance
