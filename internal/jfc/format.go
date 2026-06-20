@@ -1,8 +1,6 @@
 package jfc
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -227,9 +225,40 @@ func displayWidth(text string, tabWidth int) int {
 }
 
 func quoteJSONString(text string) string {
-	var buffer bytes.Buffer
-	encoder := json.NewEncoder(&buffer)
-	encoder.SetEscapeHTML(false)
-	_ = encoder.Encode(text)
-	return strings.TrimSuffix(buffer.String(), "\n")
+	const hex = "0123456789abcdef"
+
+	var builder strings.Builder
+	builder.Grow(len(text) + 2)
+	builder.WriteByte('"')
+	for _, r := range text {
+		switch r {
+		case '\\', '"':
+			builder.WriteByte('\\')
+			builder.WriteRune(r)
+		case '\b':
+			builder.WriteString(`\b`)
+		case '\f':
+			builder.WriteString(`\f`)
+		case '\n':
+			builder.WriteString(`\n`)
+		case '\r':
+			builder.WriteString(`\r`)
+		case '\t':
+			builder.WriteString(`\t`)
+		case '\u2028':
+			builder.WriteString(`\u2028`)
+		case '\u2029':
+			builder.WriteString(`\u2029`)
+		default:
+			if r < 0x20 {
+				builder.WriteString(`\u00`)
+				builder.WriteByte(hex[byte(r)>>4])
+				builder.WriteByte(hex[byte(r)&0x0f])
+				continue
+			}
+			builder.WriteRune(r)
+		}
+	}
+	builder.WriteByte('"')
+	return builder.String()
 }

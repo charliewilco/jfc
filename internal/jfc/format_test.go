@@ -43,6 +43,20 @@ func TestFormatJSONRemovesSpaceAfterColonWhenConfigured(t *testing.T) {
 	assertStringEqual(t, "{\"x\":1}\n", string(output))
 }
 
+func TestFormatJSONEscapesStringsWithoutHTMLEscapes(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("{\"s\":\"quote\\\" slash\\\\ backspace\\b formfeed\\f newline\\n carriage\\r tab\\t <>& snowman ☃ line\\u2028para\\u2029\"}")
+	output, err := formatJSON(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatJSON returned error: %v", err)
+	}
+
+	expected := "{\n  \"s\": \"quote\\\" slash\\\\ backspace\\b formfeed\\f newline\\n carriage\\r tab\\t <>& snowman ☃ line\\u2028para\\u2029\"\n}\n"
+	assertStringEqual(t, expected, string(output))
+	assertJSONSemanticallyEqual(t, input, output)
+}
+
 func TestFormatJSONPreservesObjectOrderByDefault(t *testing.T) {
 	t.Parallel()
 
