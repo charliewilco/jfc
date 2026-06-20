@@ -120,6 +120,61 @@ func TestRunCheckReturnsNonZeroForUnformattedFile(t *testing.T) {
 	}
 }
 
+func TestRunDiffPrintsUnifiedDiffForUnformattedFile(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	target := filepath.Join(root, "example.json")
+	if err := os.WriteFile(target, []byte(`{"x":1}`), 0o644); err != nil {
+		t.Fatalf("write json: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--diff", target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+
+	expected := strings.Join([]string{
+		"--- " + target,
+		"+++ " + target,
+		"@@ -1,1 +1,1 @@",
+		`-{"x":1}`,
+		`\ No newline at end of file`,
+		`+{"x": 1}`,
+		"",
+	}, "\n")
+	assertStringEqual(t, expected, stdout.String())
+}
+
+func TestRunDiffPrintsUnifiedDiffForStdinFilepath(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run(
+		[]string{"--diff", "--stdin-filepath", "README.md"},
+		strings.NewReader("# Title\r\n   \r\n"),
+		&stdout,
+		&stderr,
+		func() (string, error) {
+			return t.TempDir(), nil
+		},
+	)
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "--- README.md\n+++ README.md\n") {
+		t.Fatalf("expected stdin filepath labels in diff, got %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "-   ") || !strings.Contains(stdout.String(), "+# Title") {
+		t.Fatalf("expected markdown changes in diff, got %q", stdout.String())
+	}
+}
+
 func TestRunCheckReturnsErrorWhenAnyTargetCannotFormat(t *testing.T) {
 	t.Parallel()
 

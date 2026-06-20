@@ -48,6 +48,7 @@ jfc README.md
 cat file.json | jfc
 jfc --write .
 jfc --check .
+jfc --diff .
 jfc --list-different .
 jfc --config jfc.toml config/app.yaml
 ```
@@ -64,6 +65,7 @@ cat payload.jsonc | jfc --stdin-filepath config/payload.jsonc
 
 - `--write`: format files in place
 - `--check`: print files that are not formatted and exit `1` if any differ
+- `--diff`: print formatting changes as a unified diff and exit `1` if any differ
 - `--list-different`: print files that differ and exit `1` if any differ
 - `--config <path>`: use an explicit `jfc.toml`
 - `--stdin-filepath <path>`: resolve stdin config and format as if input came from that file
@@ -141,6 +143,12 @@ Check formatting in CI:
 jfc --check .
 ```
 
+Preview formatting changes:
+
+```bash
+jfc --diff .
+```
+
 Format only changed supported files in git:
 
 ```bash
@@ -165,8 +173,8 @@ trailing_newline = true
 ## Behavior
 
 - Formats supported files from paths, directories, globs, or stdin
-- Supports `--write`, `--check`, and `--list-different`
-- Returns exit code `1` when `--check` or `--list-different` finds unformatted files
+- Supports `--write`, `--check`, `--diff`, and `--list-different`
+- Returns exit code `1` when `--check`, `--diff`, or `--list-different` finds unformatted files
 - Returns exit code `2` for parse, config, IO, or usage errors
 - Emits parse diagnostics from the underlying format parser
 

@@ -27,6 +27,7 @@ const (
 	modeWrite
 	modeCheck
 	modeListDifferent
+	modeDiff
 )
 
 func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, getwd func() (string, error)) int {
@@ -36,11 +37,12 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 	write := fs.Bool("write", false, "Edit files in place.")
 	check := fs.Bool("check", false, "Check that files are formatted.")
 	listDifferent := fs.Bool("list-different", false, "Print paths whose formatting differs.")
+	diff := fs.Bool("diff", false, "Print formatting changes as a unified diff.")
 	configPath := fs.String("config", "", "Path to a jfc.toml config file.")
 	stdinFilepath := fs.String("stdin-filepath", "", "Treat stdin as if it came from this file path.")
 
 	fs.Usage = func() {
-		fmt.Fprintf(stderr, "Usage: jfc [--write|--check|--list-different] [--config path] [--stdin-filepath path] [file ...]\n")
+		fmt.Fprintf(stderr, "Usage: jfc [--write|--check|--list-different|--diff] [--config path] [--stdin-filepath path] [file ...]\n")
 		fmt.Fprintf(stderr, "       jfc < file.json\n")
 		fmt.Fprintf(stderr, "Supported files: %s\n", supportedExtensionsText())
 	}
@@ -52,7 +54,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 		return exitError
 	}
 
-	mode, err := resolveMode(*write, *check, *listDifferent)
+	mode, err := resolveMode(*write, *check, *listDifferent, *diff)
 	if err != nil {
 		fmt.Fprintln(stderr, "jfc:", err)
 		return exitError
@@ -156,6 +158,14 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 				hadDiff = true
 				fmt.Fprintln(stdout, path)
 			}
+		case modeDiff:
+			if changed {
+				hadDiff = true
+				if _, err := stdout.Write([]byte(unifiedDiff(path, path, input, output))); err != nil {
+					fmt.Fprintf(stderr, "jfc: write stdout: %v\n", err)
+					return exitError
+				}
+			}
 		}
 	}
 
@@ -168,7 +178,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 	return exitSuccess
 }
 
-func resolveMode(write bool, check bool, listDifferent bool) (runMode, error) {
+func resolveMode(write bool, check bool, listDifferent bool, diff bool) (runMode, error) {
 	selected := 0
 	mode := modePrint
 
@@ -184,8 +194,12 @@ func resolveMode(write bool, check bool, listDifferent bool) (runMode, error) {
 		selected++
 		mode = modeListDifferent
 	}
+	if diff {
+		selected++
+		mode = modeDiff
+	}
 	if selected > 1 {
-		return modePrint, fmt.Errorf("--write, --check, and --list-different are mutually exclusive")
+		return modePrint, fmt.Errorf("--write, --check, --list-different, and --diff are mutually exclusive")
 	}
 	return mode, nil
 }
@@ -243,6 +257,19 @@ func runStdin(mode runMode, stdin io.Reader, stdout io.Writer, stderr io.Writer,
 				label = stdinFilepath
 			}
 			fmt.Fprintln(stdout, label)
+			return exitDiff
+		}
+		return exitSuccess
+	case modeDiff:
+		if changed {
+			label := "stdin"
+			if stdinFilepath != "" {
+				label = stdinFilepath
+			}
+			if _, err := stdout.Write([]byte(unifiedDiff(label, label, input, output))); err != nil {
+				fmt.Fprintln(stderr, "jfc: write stdout:", err)
+				return exitError
+			}
 			return exitDiff
 		}
 		return exitSuccess
