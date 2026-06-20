@@ -25,6 +25,8 @@ Install the latest version with Go:
 go install github.com/charliewilco/jfc@latest
 ```
 
+Download checksummed release archives from GitHub Releases when tagged builds are available. Release archives contain the `jfc` binary and `man/jfc.1` for Darwin, Linux, and Windows on `amd64` and `arm64`.
+
 Build from source in a local checkout:
 
 ```bash
@@ -46,6 +48,7 @@ install -m 0644 ./man/jfc.1 /usr/local/share/man/man1/jfc.1
 jfc file.json
 jfc README.md
 cat file.json | jfc
+jfc init
 jfc --write .
 jfc --check .
 jfc --check --diff .
@@ -72,6 +75,18 @@ cat payload.jsonc | jfc --stdin-filepath config/payload.jsonc
 - `--stdin-filepath <path>`: resolve stdin config and format as if input came from that file
 - `--help`: print CLI usage
 
+## Commands
+
+### `jfc init`
+
+Create a minimal `jfc.toml` in the current directory:
+
+```toml
+ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
+```
+
+`jfc init` refuses to overwrite an existing config. Ignore patterns live in `jfc.toml`; there is no separate `.jfcignore` file.
+
 ## File Matching
 
 `jfc` accepts:
@@ -90,6 +105,12 @@ Traversal does not follow symlinked directories or symlinked files discovered wh
 `jfc` looks for `jfc.toml` by walking upward from each file being formatted. `--config` overrides discovery for all targets. Stdin discovery starts from `--stdin-filepath` when provided, otherwise from the current working directory.
 
 Example:
+
+```toml
+ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
+```
+
+Full example with every supported option:
 
 ```toml
 use_tabs = true
@@ -195,8 +216,19 @@ just check
 
 which currently executes:
 
+- `gofmt -l .`
+- `go vet ./...`
 - `go tool gotestsum --format testname -- -count=1 <packages with tests>`
 - `go build ./...`
+
+Formatter conformance and release packaging smoke tests are available separately:
+
+```bash
+just conformance
+just release-check
+```
+
+`just release-check` cross-compiles Darwin, Linux, and Windows binaries for `amd64` and `arm64`, packages each binary with the man page, writes `checksums.txt`, and verifies archive contents.
 
 ## Performance
 

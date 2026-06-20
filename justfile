@@ -20,6 +20,23 @@ build:
 test:
 	go tool gotestsum --format testname -- -count=1 {{test_packages}}
 
+# Check that Go sources are gofmt-formatted.
+fmt-check:
+	@unformatted="$(gofmt -l .)"; \
+	if [ -n "$unformatted" ]; then \
+		echo "These files are not gofmt-formatted:"; \
+		echo "$unformatted"; \
+		exit 1; \
+	fi
+
+# Run Go's static analyzer.
+vet:
+	go vet ./...
+
+# Run formatter conformance suites.
+conformance:
+	go test ./internal/jfc -run 'TestFormat(JSON|TOML).*Conformance|TestFormatMarkdownPreservesRenderedConformanceCases|TestFormatDocumentFixtures|TestFormatJSONCSortCommentFixture' -count=1
+
 # Run formatter performance benchmarks with allocation stats.
 bench:
 	go test ./internal/jfc -run '^$' -bench 'BenchmarkFormat' -benchmem -count=1
@@ -44,8 +61,14 @@ fuzz-markdown:
 fmt:
 	go fmt ./...
 
-# Basic verification used before handoff: tests plus a build.
-check:
+# Smoke-test release packaging for every supported target.
+release-check:
+	tmp="$(mktemp -d)"; \
+	trap 'rm -rf "$tmp"' EXIT; \
+	DIST_DIR="$tmp" bash scripts/release-check.sh
+
+# Basic verification used before handoff: format, vet, tests, and build.
+check: fmt-check vet
 	go tool gotestsum --format testname -- -count=1 {{test_packages}}
 	go build ./...
 

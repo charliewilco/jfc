@@ -20,6 +20,9 @@ const (
 	exitError   = 2
 )
 
+const initConfigContents = `ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
+`
+
 type runMode int
 
 const (
@@ -31,6 +34,10 @@ const (
 )
 
 func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, getwd func() (string, error)) int {
+	if len(args) > 0 && args[0] == "init" {
+		return runInit(args[1:], stdout, stderr, getwd)
+	}
+
 	fs := flag.NewFlagSet("jfc", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
@@ -44,6 +51,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "Usage: jfc [--write|--check [--diff]|--list-different|--diff] [--config path] [--stdin-filepath path] [file ...]\n")
 		fmt.Fprintf(stderr, "       jfc < file.json\n")
+		fmt.Fprintf(stderr, "       jfc init\n")
 		fmt.Fprintf(stderr, "Supported files: %s\n", supportedExtensionsText())
 	}
 
@@ -175,6 +183,50 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 	if hadDiff {
 		return exitDiff
 	}
+	return exitSuccess
+}
+
+func runInit(args []string, stdout io.Writer, stderr io.Writer, getwd func() (string, error)) int {
+	if len(args) > 0 {
+		if len(args) == 1 && args[0] == "--help" {
+			fmt.Fprintln(stderr, "Usage: jfc init")
+			fmt.Fprintln(stderr, "Create a minimal jfc.toml in the current directory.")
+			return exitSuccess
+		}
+		fmt.Fprintln(stderr, "jfc: init does not accept arguments")
+		return exitError
+	}
+
+	cwd, err := getwd()
+	if err != nil {
+		fmt.Fprintln(stderr, "jfc: determine working directory:", err)
+		return exitError
+	}
+
+	path := filepath.Join(cwd, defaultConfigName)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			fmt.Fprintf(stderr, "jfc: %s already exists\n", path)
+			return exitError
+		}
+		fmt.Fprintf(stderr, "jfc: create %s: %v\n", path, err)
+		return exitError
+	}
+
+	if _, err := file.WriteString(initConfigContents); err != nil {
+		file.Close()
+		_ = os.Remove(path)
+		fmt.Fprintf(stderr, "jfc: write %s: %v\n", path, err)
+		return exitError
+	}
+	if err := file.Close(); err != nil {
+		_ = os.Remove(path)
+		fmt.Fprintf(stderr, "jfc: write %s: %v\n", path, err)
+		return exitError
+	}
+
+	fmt.Fprintln(stdout, path)
 	return exitSuccess
 }
 

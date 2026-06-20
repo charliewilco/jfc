@@ -7,6 +7,8 @@ jfc \- format common project files with one nearest TOML config
 [\fB--config\fR \fIPATH\fR]
 [\fB--stdin-filepath\fR \fIPATH\fR]
 [\fIFILE\fR ...]
+.br
+.B jfc init
 .SH DESCRIPTION
 .B jfc
 means either "jesus fucking christ" or "just format correctly".
@@ -90,6 +92,25 @@ Resolve stdin configuration and format selection as if the input originated from
 .TP
 .B --help
 Show usage information.
+.SH COMMANDS
+.TP
+.B init
+Create a minimal
+.B jfc.toml
+in the current directory.
+The generated config contains only:
+.IP
+.EX
+ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
+.EE
+.IP
+.B init
+refuses to overwrite an existing config.
+Ignore patterns live in
+.BR jfc.toml ;
+there is no separate
+.B .jfcignore
+file.
 .SH CONFIGURATION
 By default,
 .B jfc
@@ -242,5 +263,17 @@ Use an explicit config:
 .TP
 .B jfc.toml
 Project-local formatter configuration.
+.SH INSTALLATION
+.TP
+.B go install github.com/charliewilco/jfc@latest
+Install from source using the Go toolchain.
+.TP
+.B GitHub release archives
+Tagged release archives contain the
+.B jfc
+binary and this man page for Darwin, Linux, and Windows on amd64 and arm64.
+.TP
+.B Homebrew
+Use the project tap formula when published.
 .SH SEE ALSO
 .BR jq (1)

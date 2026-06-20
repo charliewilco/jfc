@@ -516,6 +516,83 @@ func TestRunUsesStdinFilepathForConfigDiscovery(t *testing.T) {
 	assertStringEqual(t, "{\"a\": 2, \"z\": 1}\n", stdout.String())
 }
 
+func TestRunInitCreatesMinimalConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"init"}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+
+	configPath := filepath.Join(root, defaultConfigName)
+	contents, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	assertStringEqual(t, initConfigContents, string(contents))
+	if strings.TrimSpace(stdout.String()) != configPath {
+		t.Fatalf("expected created path in stdout, got %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunInitRefusesToOverwriteConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	configPath := filepath.Join(root, defaultConfigName)
+	original := []byte("print_width = 100\n")
+	if err := os.WriteFile(configPath, original, 0o644); err != nil {
+		t.Fatalf("write existing config: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"init"}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "already exists") {
+		t.Fatalf("expected existing config error, got %q", stderr.String())
+	}
+
+	contents, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if !bytes.Equal(contents, original) {
+		t.Fatalf("existing config was overwritten: %q", contents)
+	}
+}
+
+func TestRunInitRejectsArguments(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"init", "config/jfc.toml"}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return t.TempDir(), nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if !strings.Contains(stderr.String(), "init does not accept arguments") {
+		t.Fatalf("expected init argument error, got %q", stderr.String())
+	}
+}
+
 func TestRunWriteTraversesSupportedFormats(t *testing.T) {
 	t.Parallel()
 

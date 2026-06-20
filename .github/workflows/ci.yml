@@ -37,3 +37,12 @@ jobs:
 
       - name: Build
         run: go build ./...
+
+      - name: Run conformance suites
+        run: go test ./internal/jfc -run 'TestFormat(JSON|TOML).*Conformance|TestFormatMarkdownPreservesRenderedConformanceCases|TestFormatDocumentFixtures|TestFormatJSONCSortCommentFixture' -count=1
+
+      - name: Smoke-test release artifacts
+        run: |
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          DIST_DIR="$tmp" bash scripts/release-check.sh
