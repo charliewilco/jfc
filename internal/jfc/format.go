@@ -57,8 +57,13 @@ func (f formatter) renderArray(items []*value, depth int) string {
 		return "[]"
 	}
 
-	if f.config.ArrayExpand != ExpandAlways {
-		if inline, ok := f.renderInlineArray(items); ok && (f.config.ArrayExpand == ExpandNever || f.fitsWidth(inline, depth)) {
+	switch f.config.ArrayExpand {
+	case ExpandNever:
+		if inline, ok := f.renderInlineArray(items); ok {
+			return inline
+		}
+	case ExpandAuto:
+		if inline, ok := f.renderInlineArrayWithin(items, f.maxInlineWidth(depth)); ok {
 			return inline
 		}
 	}
@@ -85,8 +90,13 @@ func (f formatter) renderObject(items []member, depth int) string {
 	}
 
 	items = f.orderedMembers(items)
-	if f.config.ObjectExpand != ExpandAlways {
-		if inline, ok := f.renderInlineObject(items); ok && (f.config.ObjectExpand == ExpandNever || f.fitsWidth(inline, depth)) {
+	switch f.config.ObjectExpand {
+	case ExpandNever:
+		if inline, ok := f.renderInlineObject(items); ok {
+			return inline
+		}
+	case ExpandAuto:
+		if inline, ok := f.renderInlineObjectWithin(items, f.maxInlineWidth(depth)); ok {
 			return inline
 		}
 	}
@@ -171,6 +181,119 @@ func (f formatter) renderInlineObject(items []member) (string, bool) {
 	return "{" + inside + "}", true
 }
 
+func (f formatter) renderInlineValueWithin(node *value, maxWidth int) (string, bool) {
+	switch node.kind {
+	case kindNull, kindBool, kindNumber, kindString:
+		rendered := f.renderValue(node, 0)
+		if displayWidth(rendered, f.config.TabWidth) > maxWidth {
+			return "", false
+		}
+		return rendered, true
+	case kindArray:
+		if f.config.ArrayExpand == ExpandAlways {
+			return "", false
+		}
+		return f.renderInlineArrayWithin(node.array, maxWidth)
+	case kindObject:
+		if f.config.ObjectExpand == ExpandAlways {
+			return "", false
+		}
+		return f.renderInlineObjectWithin(f.orderedMembers(node.object), maxWidth)
+	default:
+		return "", false
+	}
+}
+
+func (f formatter) renderInlineArrayWithin(items []*value, maxWidth int) (string, bool) {
+	if len(items) == 0 {
+		rendered, _ := f.renderInlineArray(items)
+		return rendered, displayWidth(rendered, f.config.TabWidth) <= maxWidth
+	}
+
+	var builder strings.Builder
+	width := 0
+	writePart := func(part string) bool {
+		builder.WriteString(part)
+		width += displayWidth(part, f.config.TabWidth)
+		return width <= maxWidth
+	}
+
+	if !writePart("[") {
+		return "", false
+	}
+	if f.config.SpaceWithinBrackets && !writePart(" ") {
+		return "", false
+	}
+
+	for i, item := range items {
+		if i > 0 && !writePart(", ") {
+			return "", false
+		}
+		rendered, ok := f.renderInlineValueWithin(item, maxWidth-width)
+		if !ok {
+			return "", false
+		}
+		if !writePart(rendered) {
+			return "", false
+		}
+	}
+
+	if f.config.SpaceWithinBrackets && !writePart(" ") {
+		return "", false
+	}
+	if !writePart("]") {
+		return "", false
+	}
+	return builder.String(), true
+}
+
+func (f formatter) renderInlineObjectWithin(items []member, maxWidth int) (string, bool) {
+	if len(items) == 0 {
+		rendered, _ := f.renderInlineObject(items)
+		return rendered, displayWidth(rendered, f.config.TabWidth) <= maxWidth
+	}
+
+	var builder strings.Builder
+	width := 0
+	writePart := func(part string) bool {
+		builder.WriteString(part)
+		width += displayWidth(part, f.config.TabWidth)
+		return width <= maxWidth
+	}
+
+	if !writePart("{") {
+		return "", false
+	}
+	if f.config.SpaceWithinBraces && !writePart(" ") {
+		return "", false
+	}
+
+	for i, item := range items {
+		if i > 0 && !writePart(", ") {
+			return "", false
+		}
+		key := quoteJSONString(item.key) + f.colonSpacing()
+		if !writePart(key) {
+			return "", false
+		}
+		rendered, ok := f.renderInlineValueWithin(item.value, maxWidth-width)
+		if !ok {
+			return "", false
+		}
+		if !writePart(rendered) {
+			return "", false
+		}
+	}
+
+	if f.config.SpaceWithinBraces && !writePart(" ") {
+		return "", false
+	}
+	if !writePart("}") {
+		return "", false
+	}
+	return builder.String(), true
+}
+
 func (f formatter) orderedMembers(items []member) []member {
 	if !f.config.SortKeys {
 		return items
@@ -190,8 +313,8 @@ func (f formatter) orderedMembers(items []member) []member {
 	return sorted
 }
 
-func (f formatter) fitsWidth(rendered string, depth int) bool {
-	return f.indentWidth(depth)+displayWidth(rendered, f.config.TabWidth) <= f.config.PrintWidth
+func (f formatter) maxInlineWidth(depth int) int {
+	return f.config.PrintWidth - f.indentWidth(depth)
 }
 
 func (f formatter) indent(depth int) string {

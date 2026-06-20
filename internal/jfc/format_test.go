@@ -102,3 +102,19 @@ func TestFormatJSONAutoExpandsWhenPrintWidthIsTooSmall(t *testing.T) {
 	expected := "{\n  \"alpha\": [\n    1,\n    2,\n    3\n  ]\n}\n"
 	assertStringEqual(t, expected, string(output))
 }
+
+func TestFormatJSONExpandNeverIgnoresPrintWidth(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.PrintWidth = 1
+	cfg.ObjectExpand = ExpandNever
+	cfg.ArrayExpand = ExpandNever
+
+	output, err := formatJSON([]byte(`{"alpha":[1,2,3]}`), cfg)
+	if err != nil {
+		t.Fatalf("formatJSON returned error: %v", err)
+	}
+
+	assertStringEqual(t, "{\"alpha\": [1, 2, 3]}\n", string(output))
+}
