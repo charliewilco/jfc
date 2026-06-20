@@ -4,7 +4,16 @@ swear to god, i thought `jq` just did this, but here we are
 
 `jfc` means either "jesus fucking christ" or "just format correctly".
 
-It is a Go CLI for conservative, predictable formatting of common project metadata and Markdown whitespace, with the strongest layout controls for JSON-family files. One binary, one nearest `jfc.toml`, predictable output.
+`jfc` is a global formatter CLI for the project files that are always lying around: JSON, JSONC, JSONL, YAML, TOML, and Markdown. Install one binary, point it at a file or repo, and get predictable formatting without remembering a different tool for every format.
+
+```bash
+jfc package.json
+jfc Cargo.toml
+jfc --write .
+jfc --check --diff .
+```
+
+It is intentionally conservative. JSON-family files get the strongest structured layout controls. TOML is validated and safely normalized without losing comments or order. Markdown is treated as a safe whitespace normalizer, not a prose rewriter.
 
 ## Supported Formats
 
@@ -44,17 +53,34 @@ install -m 0644 ./man/jfc.1 /usr/local/share/man/man1/jfc.1
 
 ## Usage
 
+The default mode formats one file or stdin to stdout:
+
 ```bash
 jfc file.json
-jfc README.md
+jfc config.toml
 cat file.json | jfc
-jfc init
+cat config.toml | jfc --stdin-filepath config.toml
+```
+
+Use `--write` when you want files changed in place:
+
+```bash
+jfc --write package.json
+jfc --write Cargo.toml
 jfc --write .
+```
+
+Use `--check` in CI:
+
+```bash
 jfc --check .
 jfc --check --diff .
-jfc --diff .
-jfc --list-different .
-jfc --config jfc.toml config/app.yaml
+```
+
+Initialize the smallest useful project config when you need local ignores:
+
+```bash
+jfc init
 ```
 
 `jfc` reads from stdin when no file paths are provided or when you pass `-`.
@@ -64,6 +90,8 @@ Stdin defaults to JSON for backward compatibility. Use `--stdin-filepath` when s
 cat README.md | jfc --stdin-filepath README.md
 cat payload.jsonc | jfc --stdin-filepath config/payload.jsonc
 ```
+
+`--stdin-filepath` matters because stdin has no extension. It tells `jfc` which parser to use and where to start looking for `jfc.toml`.
 
 ## CLI Flags
 
@@ -153,6 +181,25 @@ ignore = ["dist", "*.generated.json"]
 
 ## Cookbook
 
+Format one JSON file:
+
+```bash
+jfc package.json
+```
+
+Format one TOML file:
+
+```bash
+jfc Cargo.toml
+```
+
+Rewrite one file:
+
+```bash
+jfc --write package.json
+jfc --write pyproject.toml
+```
+
 Format a mixed repo in place:
 
 ```bash
@@ -169,6 +216,26 @@ Show CI-friendly formatting failures with exact changes:
 
 ```bash
 jfc --check --diff .
+```
+
+GitHub Actions example:
+
+```yaml
+name: Format
+
+on:
+  pull_request:
+
+jobs:
+  jfc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go install github.com/charliewilco/jfc@latest
+      - run: jfc --check --diff .
 ```
 
 Preview formatting changes:

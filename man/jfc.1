@@ -12,8 +12,11 @@ jfc \- format common project files with one nearest TOML config
 .SH DESCRIPTION
 .B jfc
 means either "jesus fucking christ" or "just format correctly".
-It conservatively formats common project metadata and Markdown whitespace from a single Go binary.
-Its strongest layout controls are for JSON-family files.
+It is a global formatter CLI for common project files: JSON, JSONC, JSONL, YAML, TOML, and Markdown.
+Install one binary, point it at a file or repo, and get predictable formatting without remembering a different tool for every format.
+Its strongest structured layout controls are for JSON-family files.
+TOML is validated and safely normalized without losing comments or order.
+Markdown is treated as a safe whitespace normalizer, not a prose rewriter.
 .PP
 Supported formats are JSON, JSONC, JSONL, YAML, TOML, and Markdown.
 When no file arguments are provided, or when a lone
@@ -251,8 +254,14 @@ or
 Parse, configuration, IO, or usage error.
 .SH EXAMPLES
 .TP
-Format a file to stdout:
+Format a JSON file to stdout:
 .B jfc package.json
+.TP
+Format a TOML file to stdout:
+.B jfc Cargo.toml
+.TP
+Rewrite one file in place:
+.B jfc --write pyproject.toml
 .TP
 Format Markdown stdin with Markdown inference:
 .B cat README.md | jfc --stdin-filepath README.md
@@ -271,6 +280,9 @@ Preview formatting changes:
 .TP
 Use an explicit config:
 .B jfc --config ./config/jfc.toml data/example.yaml
+.TP
+Install for local use or CI:
+.B go install github.com/charliewilco/jfc@latest
 .SH FILES
 .TP
 .B jfc.toml
