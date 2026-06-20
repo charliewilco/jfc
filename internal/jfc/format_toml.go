@@ -40,16 +40,21 @@ const (
 )
 
 func formatTOMLLine(line string) string {
-	trimmedRight := strings.TrimRightFunc(line, unicode.IsSpace)
-	eq := findTOMLEquals(trimmedRight)
-	if eq < 0 {
-		return trimmedRight
+	preserveTrailing := nextTOMLMultilineState(line, tomlMultilineNone) != tomlMultilineNone
+	candidate := line
+	if !preserveTrailing {
+		candidate = strings.TrimRightFunc(line, unicode.IsSpace)
 	}
 
-	before := strings.TrimRightFunc(trimmedRight[:eq], unicode.IsSpace)
-	after := strings.TrimLeftFunc(trimmedRight[eq+1:], unicode.IsSpace)
+	eq := findTOMLEquals(candidate)
+	if eq < 0 {
+		return candidate
+	}
+
+	before := strings.TrimRightFunc(candidate[:eq], unicode.IsSpace)
+	after := strings.TrimLeftFunc(candidate[eq+1:], unicode.IsSpace)
 	if before == "" || after == "" {
-		return trimmedRight
+		return candidate
 	}
 	return before + " = " + after
 }
