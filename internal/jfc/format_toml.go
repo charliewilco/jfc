@@ -122,6 +122,7 @@ func findTOMLEquals(line string) int {
 		inBasicString   bool
 		inLiteralString bool
 		escaped         bool
+		nesting         int
 	)
 
 	for i, r := range line {
@@ -136,7 +137,11 @@ func findTOMLEquals(line string) int {
 			inLiteralString = !inLiteralString
 		case !inBasicString && !inLiteralString && r == '#':
 			return -1
-		case !inBasicString && !inLiteralString && r == '=':
+		case !inBasicString && !inLiteralString && (r == '[' || r == '{'):
+			nesting++
+		case !inBasicString && !inLiteralString && (r == ']' || r == '}') && nesting > 0:
+			nesting--
+		case !inBasicString && !inLiteralString && nesting == 0 && r == '=':
 			return i
 		}
 	}

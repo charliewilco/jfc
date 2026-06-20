@@ -190,6 +190,34 @@ func TestFormatTOMLPreservesSameLineMultilineStringContent(t *testing.T) {
 	assertTOMLSemanticallyEqual(t, input, output)
 }
 
+func TestFormatTOMLDoesNotNormalizeEqualsInsideArrayValues(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(strings.Join([]string{
+		`items=[`,
+		`  {x=1,y=2},`,
+		`  {url="https://example.test?q=a=b"},`,
+		`]`,
+		`point={x=1,y=2}`,
+		``,
+	}, "\n"))
+	output, err := formatTOML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatTOML returned error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		`items = [`,
+		`  {x=1,y=2},`,
+		`  {url="https://example.test?q=a=b"},`,
+		`]`,
+		`point = {x=1,y=2}`,
+		``,
+	}, "\n")
+	assertStringEqual(t, expected, string(output))
+	assertTOMLSemanticallyEqual(t, input, output)
+}
+
 func TestFormatMarkdownConservativelyNormalizesWhitespace(t *testing.T) {
 	t.Parallel()
 

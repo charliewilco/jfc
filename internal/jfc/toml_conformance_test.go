@@ -15,6 +15,7 @@ func TestFormatTOMLAcceptsConformanceCases(t *testing.T) {
 		{name: "scalars", input: "title=\"jfc\"\nactive=true\ncount=1\npi=3.14\n"},
 		{name: "dates_and_times", input: "date=2026-06-20\noffset=2026-06-20T12:34:56-04:00\nlocal=12:34:56\n"},
 		{name: "arrays", input: "items=[\"a\", \"b\", \"c\"]\npoints=[{x=1,y=2},{x=3,y=4}]\n"},
+		{name: "multiline_arrays", input: "items=[\n  \"a\",\n  {x=1,y=2},\n]\n"},
 		{name: "inline_table", input: "metadata={name=\"jfc\", stable=true}\n"},
 		{name: "dotted_keys", input: "server.alpha.ip=\"10.0.0.1\"\nserver.alpha.role=\"api\"\n"},
 		{name: "tables", input: "[project]\nname=\"jfc\"\n\n[tool.jfc]\nline-length=80\n"},
