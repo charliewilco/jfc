@@ -30,6 +30,12 @@ Paths matched by
 patterns in
 .B jfc.toml
 are also skipped.
+Paths matched by standard ignore sources such as
+.BR .ignore ,
+.BR .gitignore ,
+and
+.B .git/info/exclude
+are skipped as well.
 Explicit unsupported file arguments are rejected.
 .PP
 Directory traversal does not follow symlinked directories or symlinked files.
@@ -106,11 +112,17 @@ ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
 .IP
 .B init
 refuses to overwrite an existing config.
-Ignore patterns live in
+Jfc-specific ignore patterns live in
 .BR jfc.toml ;
 there is no separate
 .B .jfcignore
 file.
+Standard external ignore sources such as
+.BR .ignore ,
+.BR .gitignore ,
+and
+.B .git/info/exclude
+are also respected.
 .SH CONFIGURATION
 By default,
 .B jfc
@@ -184,7 +196,7 @@ or
 .BR cr .
 .TP
 .B ignore
-Glob patterns, resolved relative to the config file, for files that
+Jfc-specific glob patterns, resolved relative to the config file, for files that
 .B jfc
 should skip.
 Patterns without

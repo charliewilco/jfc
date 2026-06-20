@@ -292,6 +292,58 @@ func TestRunCheckSkipsIgnoredConfigPaths(t *testing.T) {
 	}
 }
 
+func TestRunCheckSkipsStandardIgnoreSources(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	paths := map[string]string{
+		".ignore":                    "dist/\n*.generated.json\n!keep.generated.json\n",
+		".gitignore":                 "vendor/\n",
+		".git/info/exclude":          "excluded.json\n",
+		".jfcignore":                 "not-a-jfc-ignore-file.json\n",
+		"dist/ignored.json":          `{"ignored":"dist"}`,
+		"vendor/ignored.json":        `{"ignored":"vendor"}`,
+		"api.generated.json":         `{"ignored":"generated"}`,
+		"excluded.json":              `{"ignored":"exclude"}`,
+		"keep.generated.json":        `{"kept":"negated"}`,
+		"checked.json":               `{"checked":true}`,
+		"not-a-jfc-ignore-file.json": `{"checked":"jfcignore is not supported"}`,
+	}
+	for name, contents := range paths {
+		path := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", name, err)
+		}
+		if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stdout = %q, stderr = %q", exitCode, exitDiff, stdout.String(), stderr.String())
+	}
+
+	output := stdout.String()
+	for _, name := range []string{"checked.json", "keep.generated.json", "not-a-jfc-ignore-file.json"} {
+		if !strings.Contains(output, filepath.Join(root, name)) {
+			t.Fatalf("expected %s in stdout, got %q", name, output)
+		}
+	}
+	for _, name := range []string{"dist/ignored.json", "vendor/ignored.json", "api.generated.json", "excluded.json"} {
+		if strings.Contains(output, filepath.Join(root, name)) {
+			t.Fatalf("expected %s to be ignored, got %q", name, output)
+		}
+	}
+	if stderr.String() != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
 func TestRunListDifferentTraversesDirectories(t *testing.T) {
 	t.Parallel()
 

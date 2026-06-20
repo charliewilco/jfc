@@ -75,6 +75,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 	}
 
 	loader := newConfigLoader(*configPath)
+	standardIgnores := newStandardIgnoreLoader()
 	paths := fs.Args()
 	if len(paths) == 0 || (len(paths) == 1 && paths[0] == "-") {
 		return runStdin(mode, stdin, stdout, stderr, loader, cwd, *stdinFilepath)
@@ -111,6 +112,15 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 			continue
 		}
 		ignored, err := cfg.ignores(path)
+		if err != nil {
+			fmt.Fprintf(stderr, "jfc: %s\n", err)
+			hadError = true
+			continue
+		}
+		if ignored {
+			continue
+		}
+		ignored, err = standardIgnores.ignores(path)
 		if err != nil {
 			fmt.Fprintf(stderr, "jfc: %s\n", err)
 			hadError = true

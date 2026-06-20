@@ -85,7 +85,7 @@ Create a minimal `jfc.toml` in the current directory:
 ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
 ```
 
-`jfc init` refuses to overwrite an existing config. Ignore patterns live in `jfc.toml`; there is no separate `.jfcignore` file.
+`jfc init` refuses to overwrite an existing config. jfc-specific ignore patterns live in `jfc.toml`; there is no separate `.jfcignore` file. The CLI also respects standard external ignore sources such as `.ignore`, `.gitignore`, and `.git/info/exclude`.
 
 ## File Matching
 
@@ -96,7 +96,7 @@ ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
 - Shell globs such as `jfc --check 'fixtures/**/*.jsonc'`
 - Stdin via no args or `-`
 
-Directory traversal skips unsupported files, `.git`, and paths matched by `ignore` in the nearest `jfc.toml`. Explicit unsupported file arguments are rejected instead of silently ignored.
+Directory traversal skips unsupported files, `.git`, paths matched by `ignore` in the nearest `jfc.toml`, and paths matched by standard ignore sources such as `.ignore`, `.gitignore`, and `.git/info/exclude`. Explicit unsupported file arguments are rejected instead of silently ignored.
 
 Traversal does not follow symlinked directories or symlinked files discovered while walking a directory. Explicit symlinked file arguments are accepted when the link path has a supported extension and the target is a file; `--write` updates the target file without replacing the symlink. Other hidden, generated, vendor, or build directories are not skipped unless they are unsupported by file extension or named `.git`.
 
@@ -140,7 +140,7 @@ ignore = ["dist", "*.generated.json"]
 - `space_within_braces`: render inline JSON and JSONL objects as `{ "x": 1 }` vs `{"x": 1}`
 - `space_within_brackets`: render inline JSON and JSONL arrays as `[ 1, 2 ]` vs `[1, 2]`
 - `end_of_line`: one of `"lf"`, `"crlf"`, or `"cr"`
-- `ignore`: glob patterns, resolved relative to the config file, for files that `jfc` should skip; patterns without `/` match any path segment
+- `ignore`: jfc-specific glob patterns, resolved relative to the config file, for files that `jfc` should skip; patterns without `/` match any path segment
 
 ## Format Notes
 
@@ -201,6 +201,7 @@ trailing_newline = true
 ## Behavior
 
 - Formats supported files from paths, directories, globs, or stdin
+- Skips paths ignored by `jfc.toml`, `.ignore`, `.gitignore`, or `.git/info/exclude`
 - Supports `--write`, `--check`, `--check --diff`, `--diff`, and `--list-different`
 - Returns exit code `1` when `--check`, `--diff`, or `--list-different` finds unformatted files
 - Returns exit code `2` for parse, config, IO, or usage errors
