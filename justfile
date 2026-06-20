@@ -20,6 +20,10 @@ build:
 test:
 	go tool gotestsum --format testname -- -count=1 {{test_packages}}
 
+# Run formatter performance benchmarks with allocation stats.
+bench:
+	go test ./internal/jfc -run '^$' -bench 'BenchmarkFormat' -benchmem -count=1
+
 # Apply standard Go formatting across the module.
 fmt:
 	go fmt ./...

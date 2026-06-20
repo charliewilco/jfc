@@ -198,6 +198,16 @@ which currently executes:
 - `go test ./...`
 - `go build ./...`
 
+## Performance
+
+Formatter benchmark baselines are available through:
+
+```bash
+just bench
+```
+
+This reports throughput and allocations for representative JSON, TOML, and Markdown inputs.
+
 ## Man Page
 
 A manual page is included at [man/jfc.1](man/jfc.1).
