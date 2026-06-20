@@ -5,9 +5,9 @@ A paragraph that should not be reflowed even when it is long enough to look like
 - first
 - second
 
-```json
+  ```json
   {"ok":true}
-```
+  ```
 
 | Name | Value |
 | --- | --- |

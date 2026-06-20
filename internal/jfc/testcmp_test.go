@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	toml "github.com/pelletier/go-toml/v2"
+	"github.com/yuin/goldmark"
 )
 
 func assertStringEqual(t testing.TB, want string, got string) {
@@ -55,4 +56,25 @@ func assertTOMLSemanticallyEqual(t testing.TB, want []byte, got []byte) {
 	if diff := cmp.Diff(wantValue, gotValue); diff != "" {
 		t.Fatalf("TOML semantic mismatch (-want +got):\n%s", diff)
 	}
+}
+
+func assertMarkdownHTMLSemanticallyEqual(t testing.TB, want []byte, got []byte) {
+	t.Helper()
+
+	wantHTML := renderMarkdownHTML(t, want)
+	gotHTML := renderMarkdownHTML(t, got)
+
+	if diff := cmp.Diff(wantHTML, gotHTML); diff != "" {
+		t.Fatalf("Markdown HTML mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func renderMarkdownHTML(t testing.TB, input []byte) string {
+	t.Helper()
+
+	var output bytes.Buffer
+	if err := goldmark.Convert(input, &output); err != nil {
+		t.Fatalf("render Markdown HTML: %v", err)
+	}
+	return output.String()
 }

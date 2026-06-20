@@ -194,8 +194,8 @@ Validates TOML and normalizes assignment spacing while preserving comments and o
 It does not rewrite tables, arrays, or prose in comments.
 .TP
 .B Markdown
-Conservatively normalizes line endings, blank-line whitespace, final newline, and fenced code block indentation.
-It does not reflow prose or rewrite the Markdown AST.
+Conservatively normalizes line endings, blank-line whitespace, and final newline.
+It does not reflow prose or reindent fenced code blocks.
 .SH EXIT STATUS
 .TP
 .B 0

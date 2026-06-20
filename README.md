@@ -127,7 +127,7 @@ ignore = ["dist/**", "*.generated.json"]
 - JSONL skips blank lines, reports parse errors with the record line number, and renders each record through the JSON formatter in inline mode.
 - YAML is parsed and encoded with `yaml.v3`; jfc controls indentation and output conventions but does not expose a full YAML style system.
 - TOML formatting is intentionally conservative: invalid TOML is rejected, assignment spacing is normalized, and comments/order are preserved. It does not rewrite tables, arrays, or prose in comments.
-- Markdown formatting is intentionally conservative: line endings, blank-line whitespace, final newline, and fenced code block indentation are normalized, but prose is not rewrapped and the Markdown AST is not rewritten.
+- Markdown formatting is intentionally conservative: line endings, blank-line whitespace, and final newline are normalized, but prose and fenced code blocks are not rewrapped or reindented.
 
 ## Cookbook
 

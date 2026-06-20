@@ -1,13 +1,13 @@
 # Fences
 
-```go
+  ```go
   fmt.Println("kept")
    
-```
+  ```
 
-~~~json
+  ~~~json
   {"x":1}
    	   
-~~~
+  ~~~
 
 Paragraph.

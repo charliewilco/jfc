@@ -199,7 +199,7 @@ func TestFormatMarkdownConservativelyNormalizesWhitespace(t *testing.T) {
 		t.Fatalf("formatMarkdown returned error: %v", err)
 	}
 
-	expected := "# Title\n\n```go\n  fmt.Println(\"kept\")  \n```\n"
+	expected := "# Title\n\n  ```go\n  fmt.Println(\"kept\")  \n  ```\n"
 	assertStringEqual(t, expected, string(output))
 }
 
@@ -213,4 +213,56 @@ func TestFormatMarkdownDoesNotTreatIndentedCodeAsFence(t *testing.T) {
 	}
 
 	assertStringEqual(t, string(input), string(output))
+}
+
+func TestFormatMarkdownRequiresMatchingFenceClose(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(strings.Join([]string{
+		"  ````markdown",
+		"  ```",
+		"   ",
+		"  ````",
+		"",
+	}, "\n"))
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	assertStringEqual(t, string(input), string(output))
+	assertMarkdownHTMLSemanticallyEqual(t, input, output)
+}
+
+func TestFormatMarkdownDoesNotCloseFenceWithInfoText(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(strings.Join([]string{
+		"```go",
+		"``` still code",
+		"   ",
+		"```",
+		"",
+	}, "\n"))
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	assertStringEqual(t, string(input), string(output))
+	assertMarkdownHTMLSemanticallyEqual(t, input, output)
+}
+
+func TestFormatMarkdownDoesNotOpenBacktickFenceWithBacktickInfo(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("``` `not an opener`\nblank follows   \n\n")
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	expected := "``` `not an opener`\nblank follows   \n"
+	assertStringEqual(t, expected, string(output))
+	assertMarkdownHTMLSemanticallyEqual(t, input, output)
 }

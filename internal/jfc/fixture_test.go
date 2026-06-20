@@ -58,6 +58,7 @@ func TestFormatDocumentFixtures(t *testing.T) {
 				t.Fatalf("formatDocument returned error: %v", err)
 			}
 			assertStringEqual(t, string(expected), string(output))
+			assertFixtureSemanticsEqual(t, format, input, output)
 
 			idempotent, err := formatDocument(expected, format, DefaultConfig())
 			if err != nil {
@@ -96,4 +97,17 @@ func TestFormatJSONCSortCommentFixture(t *testing.T) {
 		t.Fatalf("formatJSONC returned error for golden output: %v", err)
 	}
 	assertStringEqual(t, string(expected), string(idempotent))
+}
+
+func assertFixtureSemanticsEqual(t testing.TB, format FormatKind, input []byte, output []byte) {
+	t.Helper()
+
+	switch format {
+	case FormatJSON:
+		assertJSONSemanticallyEqual(t, input, output)
+	case FormatTOML:
+		assertTOMLSemanticallyEqual(t, input, output)
+	case FormatMarkdown:
+		assertMarkdownHTMLSemanticallyEqual(t, input, output)
+	}
 }

@@ -3,7 +3,6 @@ package jfc
 import (
 	"fmt"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/yuin/goldmark"
@@ -19,17 +18,18 @@ func formatMarkdown(input []byte, config Config) ([]byte, error) {
 
 	lines := strings.Split(normalizeLineEndingsToLF(string(input)), "\n")
 	inFence := false
-	fenceMarker := ""
+	fence := markdownFence{}
 	for i, line := range lines {
-		if fence, ok := markdownFence(line); ok {
-			line = strings.TrimLeftFunc(line, unicode.IsSpace)
-			if !inFence {
-				inFence = true
-				fenceMarker = fence
-			} else if strings.HasPrefix(line, fenceMarker) {
-				inFence = false
-				fenceMarker = ""
-			}
+		if candidate, ok := markdownFenceSequence(line); ok && !inFence && markdownOpeningFence(candidate) {
+			inFence = true
+			fence = candidate
+			lines[i] = line
+			continue
+		}
+
+		if candidate, ok := markdownFenceSequence(line); ok && inFence && markdownClosingFence(candidate, fence) {
+			inFence = false
+			fence = markdownFence{}
 			lines[i] = line
 			continue
 		}
@@ -42,21 +42,52 @@ func formatMarkdown(input []byte, config Config) ([]byte, error) {
 	return applyOutputConventions(strings.Join(lines, "\n"), config), nil
 }
 
-func markdownFence(line string) (string, bool) {
+type markdownFence struct {
+	marker byte
+	length int
+	rest   string
+}
+
+func markdownFenceSequence(line string) (markdownFence, bool) {
 	indent := 0
 	for indent < len(line) && line[indent] == ' ' {
 		indent++
 	}
 	if indent > 3 {
-		return "", false
+		return markdownFence{}, false
 	}
 
 	trimmed := line[indent:]
-	if strings.HasPrefix(trimmed, "```") {
-		return "```", true
+	if len(trimmed) < 3 {
+		return markdownFence{}, false
 	}
-	if strings.HasPrefix(trimmed, "~~~") {
-		return "~~~", true
+
+	marker := trimmed[0]
+	if marker != '`' && marker != '~' {
+		return markdownFence{}, false
 	}
-	return "", false
+
+	length := 0
+	for length < len(trimmed) && trimmed[length] == marker {
+		length++
+	}
+	if length < 3 {
+		return markdownFence{}, false
+	}
+
+	return markdownFence{
+		marker: marker,
+		length: length,
+		rest:   trimmed[length:],
+	}, true
+}
+
+func markdownOpeningFence(fence markdownFence) bool {
+	return fence.marker != '`' || !strings.Contains(fence.rest, "`")
+}
+
+func markdownClosingFence(candidate markdownFence, opening markdownFence) bool {
+	return candidate.marker == opening.marker &&
+		candidate.length >= opening.length &&
+		strings.TrimSpace(candidate.rest) == ""
 }
