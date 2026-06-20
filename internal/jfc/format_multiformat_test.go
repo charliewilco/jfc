@@ -105,6 +105,37 @@ func TestFormatTOMLValidatesAndNormalizesAssignments(t *testing.T) {
 	}
 }
 
+func TestFormatTOMLPreservesEqualsInsideStringsAndComments(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(strings.Join([]string{
+		`basic="a=b" # comment has c=d`,
+		`literal='x=y'`,
+		`escaped="quote \" = still inside"`,
+		`url="https://example.test/search?q=a=b"`,
+		`# comment_only=unchanged`,
+		`# not_assignment # still not key=value`,
+		``,
+	}, "\n"))
+	output, err := formatTOML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatTOML returned error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		`basic = "a=b" # comment has c=d`,
+		`literal = 'x=y'`,
+		`escaped = "quote \" = still inside"`,
+		`url = "https://example.test/search?q=a=b"`,
+		`# comment_only=unchanged`,
+		`# not_assignment # still not key=value`,
+		``,
+	}, "\n")
+	if string(output) != expected {
+		t.Fatalf("unexpected TOML output:\n%s", output)
+	}
+}
+
 func TestFormatMarkdownConservativelyNormalizesWhitespace(t *testing.T) {
 	t.Parallel()
 

@@ -1,0 +1,11 @@
+{
+	// a belongs to a
+	"a": {
+		// alpha belongs to alpha
+		"alpha": 1,
+		// beta belongs to beta
+		"beta": 2,
+	},
+	// z belongs to z
+	"z": 1,
+}

@@ -128,6 +128,35 @@ func TestRunCheckReturnsNonZeroForUnformattedFile(t *testing.T) {
 	}
 }
 
+func TestRunCheckReturnsErrorWhenAnyTargetCannotFormat(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	invalid := filepath.Join(root, "invalid.json")
+	changed := filepath.Join(root, "changed.json")
+	if err := os.WriteFile(invalid, []byte(`{"bad":}`), 0o644); err != nil {
+		t.Fatalf("write invalid json: %v", err)
+	}
+	if err := os.WriteFile(changed, []byte(`{"x":1}`), 0o644); err != nil {
+		t.Fatalf("write changed json: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d, stdout = %q, stderr = %q", exitCode, exitError, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), changed) {
+		t.Fatalf("expected changed file in stdout, got %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), invalid) {
+		t.Fatalf("expected invalid file error in stderr, got %q", stderr.String())
+	}
+}
+
 func TestRunListDifferentTraversesDirectories(t *testing.T) {
 	t.Parallel()
 
@@ -587,6 +616,123 @@ func TestRunExplicitConfigOverridesDiscovery(t *testing.T) {
 	}
 	if stdout.String() != "{\"a\": 2, \"z\": 1}\n" {
 		t.Fatalf("unexpected stdout %q", stdout.String())
+	}
+}
+
+func TestRunReportsMissingExplicitConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	missingConfig := filepath.Join(root, "missing.toml")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--config", missingConfig}, strings.NewReader(`{"x":1}`), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("expected no stdout, got %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "load config") || !strings.Contains(stderr.String(), missingConfig) {
+		t.Fatalf("expected missing explicit config error, got %q", stderr.String())
+	}
+}
+
+func TestRunReportsInvalidExplicitConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	configPath := filepath.Join(root, "invalid.toml")
+	target := filepath.Join(root, "example.json")
+	if err := os.WriteFile(configPath, []byte("tab_width = 0\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := os.WriteFile(target, []byte(`{"x":1}`), 0o644); err != nil {
+		t.Fatalf("write json: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--config", configPath, "--check", target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("expected no stdout, got %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "tab_width must be greater than zero") {
+		t.Fatalf("expected invalid explicit config error, got %q", stderr.String())
+	}
+}
+
+func TestRunReportsBadDiscoveredConfigForFileAndStdin(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		run  func(t *testing.T, root string) (int, string, string)
+	}{
+		{
+			name: "file",
+			run: func(t *testing.T, root string) (int, string, string) {
+				target := filepath.Join(root, "nested", "example.json")
+				if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+					t.Fatalf("mkdir: %v", err)
+				}
+				if err := os.WriteFile(target, []byte(`{"x":1}`), 0o644); err != nil {
+					t.Fatalf("write json: %v", err)
+				}
+
+				var stdout bytes.Buffer
+				var stderr bytes.Buffer
+				exitCode := Run([]string{"--check", target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+					return root, nil
+				})
+				return exitCode, stdout.String(), stderr.String()
+			},
+		},
+		{
+			name: "stdin",
+			run: func(t *testing.T, root string) (int, string, string) {
+				stdinPath := filepath.Join(root, "nested", "stdin.json")
+				if err := os.MkdirAll(filepath.Dir(stdinPath), 0o755); err != nil {
+					t.Fatalf("mkdir: %v", err)
+				}
+
+				var stdout bytes.Buffer
+				var stderr bytes.Buffer
+				exitCode := Run([]string{"--stdin-filepath", stdinPath}, strings.NewReader(`{"x":1}`), &stdout, &stderr, func() (string, error) {
+					return root, nil
+				})
+				return exitCode, stdout.String(), stderr.String()
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := t.TempDir()
+			if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte("print_width = 0\n"), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+
+			exitCode, stdout, stderr := tc.run(t, root)
+			if exitCode != exitError {
+				t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+			}
+			if stdout != "" {
+				t.Fatalf("expected no stdout, got %q", stdout)
+			}
+			if !strings.Contains(stderr, "print_width must be greater than zero") {
+				t.Fatalf("expected discovered config error, got %q", stderr)
+			}
+		})
 	}
 }
 

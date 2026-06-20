@@ -26,6 +26,7 @@ func TestFormatDocumentFixtures(t *testing.T) {
 		{name: "toml", input: "toml.input.toml", golden: "toml.golden.toml"},
 		{name: "pyproject_toml", input: "pyproject.input.toml", golden: "pyproject.golden.toml"},
 		{name: "markdown", input: "markdown.input.md", golden: "markdown.golden.md"},
+		{name: "markdown_fences", input: "markdown_fences.input.md", golden: "markdown_fences.golden.md"},
 		{name: "readme_markdown", input: "readme.input.md", golden: "readme.golden.md"},
 	}
 
@@ -67,5 +68,39 @@ func TestFormatDocumentFixtures(t *testing.T) {
 				t.Fatalf("fixture golden output is not idempotent\nexpected:\n%s\nactual:\n%s", expected, idempotent)
 			}
 		})
+	}
+}
+
+func TestFormatJSONCSortCommentFixture(t *testing.T) {
+	t.Parallel()
+
+	inputPath := filepath.Join("testdata", "format", "jsonc_sort_comments.input.jsonc")
+	goldenPath := filepath.Join("testdata", "format", "jsonc_sort_comments.golden.jsonc")
+
+	input, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatalf("read input fixture: %v", err)
+	}
+	expected, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read golden fixture: %v", err)
+	}
+
+	cfg := DefaultConfig()
+	cfg.SortKeys = true
+	output, err := formatJSONC(input, cfg)
+	if err != nil {
+		t.Fatalf("formatJSONC returned error: %v", err)
+	}
+	if string(output) != string(expected) {
+		t.Fatalf("fixture output mismatch\nexpected:\n%s\nactual:\n%s", expected, output)
+	}
+
+	idempotent, err := formatJSONC(expected, cfg)
+	if err != nil {
+		t.Fatalf("formatJSONC returned error for golden output: %v", err)
+	}
+	if string(idempotent) != string(expected) {
+		t.Fatalf("fixture golden output is not idempotent\nexpected:\n%s\nactual:\n%s", expected, idempotent)
 	}
 }
