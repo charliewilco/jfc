@@ -150,6 +150,31 @@ func TestRunDiffPrintsUnifiedDiffForUnformattedFile(t *testing.T) {
 	assertStringEqual(t, expected, stdout.String())
 }
 
+func TestRunCheckDiffPrintsUnifiedDiffForUnformattedFile(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	target := filepath.Join(root, "example.json")
+	if err := os.WriteFile(target, []byte(`{"x":1}`), 0o644); err != nil {
+		t.Fatalf("write json: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", "--diff", target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "--- "+target+"\n+++ "+target+"\n") {
+		t.Fatalf("expected unified diff in stdout, got %q", stdout.String())
+	}
+	if strings.Contains(stdout.String(), target+"\n--- ") {
+		t.Fatalf("expected diff output without separate path listing, got %q", stdout.String())
+	}
+}
+
 func TestRunDiffPrintsUnifiedDiffForStdinFilepath(t *testing.T) {
 	t.Parallel()
 
@@ -172,6 +197,28 @@ func TestRunDiffPrintsUnifiedDiffForStdinFilepath(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "-   ") || !strings.Contains(stdout.String(), "+# Title") {
 		t.Fatalf("expected markdown changes in diff, got %q", stdout.String())
+	}
+}
+
+func TestRunCheckDiffPrintsUnifiedDiffForStdinFilepath(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run(
+		[]string{"--check", "--diff", "--stdin-filepath", "README.md"},
+		strings.NewReader("# Title\r\n   \r\n"),
+		&stdout,
+		&stderr,
+		func() (string, error) {
+			return t.TempDir(), nil
+		},
+	)
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "--- README.md\n+++ README.md\n") {
+		t.Fatalf("expected stdin filepath labels in diff, got %q", stdout.String())
 	}
 }
 
@@ -885,6 +932,32 @@ func TestRunRejectsMutuallyExclusiveModes(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "mutually exclusive") {
 		t.Fatalf("expected mutually exclusive flags error, got %q", stderr.String())
+	}
+}
+
+func TestRunRejectsDiffWithWriteOrListDifferent(t *testing.T) {
+	t.Parallel()
+
+	for _, args := range [][]string{
+		{"--write", "--diff", "example.json"},
+		{"--list-different", "--diff", "example.json"},
+	} {
+		args := args
+		t.Run(strings.Join(args[:2], "_"), func(t *testing.T) {
+			t.Parallel()
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := Run(args, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+				return t.TempDir(), nil
+			})
+			if exitCode != exitError {
+				t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+			}
+			if !strings.Contains(stderr.String(), "--diff can be used alone or with --check") {
+				t.Fatalf("expected diff mode error, got %q", stderr.String())
+			}
+		})
 	}
 }
 

@@ -42,7 +42,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 	stdinFilepath := fs.String("stdin-filepath", "", "Treat stdin as if it came from this file path.")
 
 	fs.Usage = func() {
-		fmt.Fprintf(stderr, "Usage: jfc [--write|--check|--list-different|--diff] [--config path] [--stdin-filepath path] [file ...]\n")
+		fmt.Fprintf(stderr, "Usage: jfc [--write|--check [--diff]|--list-different|--diff] [--config path] [--stdin-filepath path] [file ...]\n")
 		fmt.Fprintf(stderr, "       jfc < file.json\n")
 		fmt.Fprintf(stderr, "Supported files: %s\n", supportedExtensionsText())
 	}
@@ -88,7 +88,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 		return exitError
 	}
 	if mode == modePrint && len(targets) > 1 {
-		fmt.Fprintln(stderr, "jfc: multiple file arguments require --write, --check, or --list-different")
+		fmt.Fprintln(stderr, "jfc: multiple file arguments require --write, --check, --diff, or --list-different")
 		return exitError
 	}
 
@@ -194,12 +194,14 @@ func resolveMode(write bool, check bool, listDifferent bool, diff bool) (runMode
 		selected++
 		mode = modeListDifferent
 	}
-	if diff {
-		selected++
-		mode = modeDiff
-	}
 	if selected > 1 {
-		return modePrint, fmt.Errorf("--write, --check, --list-different, and --diff are mutually exclusive")
+		return modePrint, fmt.Errorf("--write, --check, and --list-different are mutually exclusive")
+	}
+	if diff && (write || listDifferent) {
+		return modePrint, fmt.Errorf("--diff can be used alone or with --check")
+	}
+	if diff {
+		mode = modeDiff
 	}
 	return mode, nil
 }
