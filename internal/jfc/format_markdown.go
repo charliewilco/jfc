@@ -43,7 +43,15 @@ func formatMarkdown(input []byte, config Config) ([]byte, error) {
 }
 
 func markdownFence(line string) (string, bool) {
-	trimmed := strings.TrimLeftFunc(line, unicode.IsSpace)
+	indent := 0
+	for indent < len(line) && line[indent] == ' ' {
+		indent++
+	}
+	if indent > 3 {
+		return "", false
+	}
+
+	trimmed := line[indent:]
 	if strings.HasPrefix(trimmed, "```") {
 		return "```", true
 	}

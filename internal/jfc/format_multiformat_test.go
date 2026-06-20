@@ -202,3 +202,15 @@ func TestFormatMarkdownConservativelyNormalizesWhitespace(t *testing.T) {
 	expected := "# Title\n\n```go\n  fmt.Println(\"kept\")  \n```\n"
 	assertStringEqual(t, expected, string(output))
 }
+
+func TestFormatMarkdownDoesNotTreatIndentedCodeAsFence(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("    ```go\n    fmt.Println(\"kept\")\n    ```\n")
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	assertStringEqual(t, string(input), string(output))
+}
