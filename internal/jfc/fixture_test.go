@@ -56,17 +56,13 @@ func TestFormatDocumentFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("formatDocument returned error: %v", err)
 			}
-			if string(output) != string(expected) {
-				t.Fatalf("fixture output mismatch\nexpected:\n%s\nactual:\n%s", expected, output)
-			}
+			assertStringEqual(t, string(expected), string(output))
 
 			idempotent, err := formatDocument(expected, format, DefaultConfig())
 			if err != nil {
 				t.Fatalf("formatDocument returned error for golden output: %v", err)
 			}
-			if string(idempotent) != string(expected) {
-				t.Fatalf("fixture golden output is not idempotent\nexpected:\n%s\nactual:\n%s", expected, idempotent)
-			}
+			assertStringEqual(t, string(expected), string(idempotent))
 		})
 	}
 }
@@ -92,15 +88,11 @@ func TestFormatJSONCSortCommentFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("formatJSONC returned error: %v", err)
 	}
-	if string(output) != string(expected) {
-		t.Fatalf("fixture output mismatch\nexpected:\n%s\nactual:\n%s", expected, output)
-	}
+	assertStringEqual(t, string(expected), string(output))
 
 	idempotent, err := formatJSONC(expected, cfg)
 	if err != nil {
 		t.Fatalf("formatJSONC returned error for golden output: %v", err)
 	}
-	if string(idempotent) != string(expected) {
-		t.Fatalf("fixture golden output is not idempotent\nexpected:\n%s\nactual:\n%s", expected, idempotent)
-	}
+	assertStringEqual(t, string(expected), string(idempotent))
 }

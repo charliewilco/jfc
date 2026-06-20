@@ -23,9 +23,7 @@ func TestFormatJSONUsesTabsWhenExpanded(t *testing.T) {
 	}
 
 	expected := "{\n\t\"alpha\": [\n\t\t1,\n\t\t{\n\t\t\t\"beta\": 2\n\t\t}\n\t]\n}\n"
-	if string(output) != expected {
-		t.Fatalf("unexpected output:\n%s", output)
-	}
+	assertStringEqual(t, expected, string(output))
 }
 
 func TestFormatJSONAppliesInlineSpacingOptions(t *testing.T) {
@@ -42,9 +40,7 @@ func TestFormatJSONAppliesInlineSpacingOptions(t *testing.T) {
 	}
 
 	expected := "{ \"alpha\": [ 1, 2 ] }\n"
-	if string(output) != expected {
-		t.Fatalf("unexpected output:\n%s", output)
-	}
+	assertStringEqual(t, expected, string(output))
 }
 
 func TestFormatJSONSortsKeysWhenEnabled(t *testing.T) {
@@ -59,9 +55,7 @@ func TestFormatJSONSortsKeysWhenEnabled(t *testing.T) {
 		t.Fatalf("formatJSON returned error: %v", err)
 	}
 
-	if got := string(output); got != "{\"a\": 2, \"z\": 1}\n" {
-		t.Fatalf("unexpected output %q", got)
-	}
+	assertStringEqual(t, "{\"a\": 2, \"z\": 1}\n", string(output))
 }
 
 func TestRunWriteDiscoversNearestConfig(t *testing.T) {
@@ -98,9 +92,7 @@ func TestRunWriteDiscoversNearestConfig(t *testing.T) {
 	}
 
 	expected := "{\n\t\"x\": 1\n}\n"
-	if string(formatted) != expected {
-		t.Fatalf("unexpected file contents:\n%s", formatted)
-	}
+	assertStringEqual(t, expected, string(formatted))
 	if strings.TrimSpace(stdout.String()) != target {
 		t.Fatalf("expected written path in stdout, got %q", stdout.String())
 	}
@@ -378,9 +370,7 @@ func TestRunUsesStdinFilepathForConfigDiscovery(t *testing.T) {
 	if exitCode != exitSuccess {
 		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
 	}
-	if stdout.String() != "{\"a\": 2, \"z\": 1}\n" {
-		t.Fatalf("unexpected stdout %q", stdout.String())
-	}
+	assertStringEqual(t, "{\"a\": 2, \"z\": 1}\n", stdout.String())
 }
 
 func TestRunWriteTraversesSupportedFormats(t *testing.T) {
@@ -452,9 +442,7 @@ func TestRunWriteSkipsSymlinksDuringDirectoryTraversal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read outside file: %v", err)
 	}
-	if string(contents) != `{"x":1}` {
-		t.Fatalf("expected symlink target to remain unchanged, got %q", contents)
-	}
+	assertStringEqual(t, `{"x":1}`, string(contents))
 }
 
 func TestRunWriteExplicitSymlinkUpdatesTargetAndPreservesLink(t *testing.T) {
@@ -490,9 +478,7 @@ func TestRunWriteExplicitSymlinkUpdatesTargetAndPreservesLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read target file: %v", err)
 	}
-	if string(contents) != "{\"x\": 1}\n" {
-		t.Fatalf("unexpected target contents %q", contents)
-	}
+	assertStringEqual(t, "{\"x\": 1}\n", string(contents))
 	targetInfo, err := os.Stat(target)
 	if err != nil {
 		t.Fatalf("stat target: %v", err)
@@ -556,9 +542,7 @@ func TestRunStdinFilepathSelectsMarkdownFormatter(t *testing.T) {
 	if exitCode != exitSuccess {
 		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
 	}
-	if stdout.String() != "# Title\n" {
-		t.Fatalf("unexpected stdout %q", stdout.String())
-	}
+	assertStringEqual(t, "# Title\n", stdout.String())
 }
 
 func TestRunRejectsUnsupportedExplicitFile(t *testing.T) {
@@ -614,9 +598,7 @@ func TestRunExplicitConfigOverridesDiscovery(t *testing.T) {
 	if exitCode != exitSuccess {
 		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
 	}
-	if stdout.String() != "{\"a\": 2, \"z\": 1}\n" {
-		t.Fatalf("unexpected stdout %q", stdout.String())
-	}
+	assertStringEqual(t, "{\"a\": 2, \"z\": 1}\n", stdout.String())
 }
 
 func TestRunReportsMissingExplicitConfig(t *testing.T) {

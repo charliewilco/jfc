@@ -16,7 +16,7 @@ build:
 
 # Run the Go test suite.
 test:
-	go test ./...
+	go tool gotestsum --format pkgname-and-test-fails --format-hide-empty-pkg -- ./...
 
 # Apply standard Go formatting across the module.
 fmt:
@@ -24,7 +24,7 @@ fmt:
 
 # Basic verification used before handoff: tests plus a build.
 check:
-	go test ./...
+	go tool gotestsum --format pkgname-and-test-fails --format-hide-empty-pkg -- ./...
 	go build ./...
 
 # Install `jfc` into your Go bin directory.

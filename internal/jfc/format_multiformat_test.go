@@ -56,9 +56,7 @@ func TestFormatJSONLFormatsEachRecordInline(t *testing.T) {
 	}
 
 	expected := "{\"a\": 2, \"z\": 1}\n{\"items\": [1, 2]}\n"
-	if string(output) != expected {
-		t.Fatalf("unexpected JSONL output:\n%s", output)
-	}
+	assertStringEqual(t, expected, string(output))
 }
 
 func TestFormatJSONLReportsLineSpecificErrors(t *testing.T) {
@@ -100,9 +98,7 @@ func TestFormatTOMLValidatesAndNormalizesAssignments(t *testing.T) {
 	}
 
 	expected := "title = \"jfc\" # keep this\n\n[tool]\nitems = [\"a\", \"b\"]\n"
-	if string(output) != expected {
-		t.Fatalf("unexpected TOML output:\n%s", output)
-	}
+	assertStringEqual(t, expected, string(output))
 }
 
 func TestFormatTOMLPreservesEqualsInsideStringsAndComments(t *testing.T) {
@@ -131,9 +127,7 @@ func TestFormatTOMLPreservesEqualsInsideStringsAndComments(t *testing.T) {
 		`# not_assignment # still not key=value`,
 		``,
 	}, "\n")
-	if string(output) != expected {
-		t.Fatalf("unexpected TOML output:\n%s", output)
-	}
+	assertStringEqual(t, expected, string(output))
 }
 
 func TestFormatMarkdownConservativelyNormalizesWhitespace(t *testing.T) {
@@ -146,7 +140,5 @@ func TestFormatMarkdownConservativelyNormalizesWhitespace(t *testing.T) {
 	}
 
 	expected := "# Title\n\n```go\n  fmt.Println(\"kept\")  \n```\n"
-	if string(output) != expected {
-		t.Fatalf("unexpected Markdown output:\n%s", output)
-	}
+	assertStringEqual(t, expected, string(output))
 }

@@ -1,9 +1,6 @@
 package jfc
 
-import (
-	"bytes"
-	"testing"
-)
+import "testing"
 
 func TestFormatJSONUsesCRLFWithoutTrailingNewline(t *testing.T) {
 	t.Parallel()
@@ -19,9 +16,7 @@ func TestFormatJSONUsesCRLFWithoutTrailingNewline(t *testing.T) {
 	}
 
 	expected := []byte("{\r\n  \"x\": 1\r\n}")
-	if !bytes.Equal(output, expected) {
-		t.Fatalf("unexpected output %q", output)
-	}
+	assertStringEqual(t, string(expected), string(output))
 }
 
 func TestFormatJSONRejectsInvalidUTF8(t *testing.T) {
@@ -45,9 +40,7 @@ func TestFormatJSONRemovesSpaceAfterColonWhenConfigured(t *testing.T) {
 		t.Fatalf("formatJSON returned error: %v", err)
 	}
 
-	if got := string(output); got != "{\"x\":1}\n" {
-		t.Fatalf("unexpected output %q", got)
-	}
+	assertStringEqual(t, "{\"x\":1}\n", string(output))
 }
 
 func TestFormatJSONPreservesObjectOrderByDefault(t *testing.T) {
@@ -61,9 +54,7 @@ func TestFormatJSONPreservesObjectOrderByDefault(t *testing.T) {
 		t.Fatalf("formatJSON returned error: %v", err)
 	}
 
-	if got := string(output); got != "{\"z\": 1, \"a\": 2}\n" {
-		t.Fatalf("unexpected output %q", got)
-	}
+	assertStringEqual(t, "{\"z\": 1, \"a\": 2}\n", string(output))
 }
 
 func TestFormatJSONAppliesSpacingToEmptyContainers(t *testing.T) {
@@ -80,9 +71,7 @@ func TestFormatJSONAppliesSpacingToEmptyContainers(t *testing.T) {
 		t.Fatalf("formatJSON returned error: %v", err)
 	}
 
-	if got := string(output); got != "{ \"emptyObject\": { }, \"emptyArray\": [ ] }\n" {
-		t.Fatalf("unexpected output %q", got)
-	}
+	assertStringEqual(t, "{ \"emptyObject\": { }, \"emptyArray\": [ ] }\n", string(output))
 }
 
 func TestFormatJSONAutoExpandsWhenPrintWidthIsTooSmall(t *testing.T) {
@@ -97,7 +86,5 @@ func TestFormatJSONAutoExpandsWhenPrintWidthIsTooSmall(t *testing.T) {
 	}
 
 	expected := "{\n  \"alpha\": [\n    1,\n    2,\n    3\n  ]\n}\n"
-	if string(output) != expected {
-		t.Fatalf("unexpected output:\n%s", output)
-	}
+	assertStringEqual(t, expected, string(output))
 }
