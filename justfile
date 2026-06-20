@@ -1,6 +1,8 @@
 # Task runner for local development.
 # Run `just` to see the available recipes.
 
+test_packages := `go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...`
+
 # Show the recipe list by default.
 default:
 	@just --list
@@ -16,7 +18,7 @@ build:
 
 # Run the Go test suite.
 test:
-	go tool gotestsum --format testname -- -count=1 ./...
+	go tool gotestsum --format testname -- -count=1 {{test_packages}}
 
 # Apply standard Go formatting across the module.
 fmt:
@@ -24,7 +26,7 @@ fmt:
 
 # Basic verification used before handoff: tests plus a build.
 check:
-	go tool gotestsum --format testname -- -count=1 ./...
+	go tool gotestsum --format testname -- -count=1 {{test_packages}}
 	go build ./...
 
 # Install `jfc` into your Go bin directory.
