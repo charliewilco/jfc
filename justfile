@@ -24,6 +24,22 @@ test:
 bench:
 	go test ./internal/jfc -run '^$' -bench 'BenchmarkFormat' -benchmem -count=1
 
+# Run all formatter fuzz suites. Override duration with `FUZZTIME=30s just fuzz`.
+fuzz: fuzz-json fuzz-toml fuzz-markdown
+
+# Run JSON formatter fuzz suites.
+fuzz-json:
+	go test ./internal/jfc -run '^$' -fuzz FuzzFormatJSONMatchesStrictDecoderAcceptance -fuzztime "${FUZZTIME:-10s}" -parallel 1
+	go test ./internal/jfc -run '^$' -fuzz FuzzFormatJSONPreservesSemanticsAndIsIdempotent -fuzztime "${FUZZTIME:-10s}" -parallel 1
+
+# Run TOML formatter fuzz suite.
+fuzz-toml:
+	go test ./internal/jfc -run '^$' -fuzz FuzzFormatTOMLPreservesSemanticsAndIsIdempotent -fuzztime "${FUZZTIME:-10s}" -parallel 1
+
+# Run Markdown formatter fuzz suite.
+fuzz-markdown:
+	go test ./internal/jfc -run '^$' -fuzz FuzzFormatMarkdownPreservesRenderedHTMLAndIsIdempotent -fuzztime "${FUZZTIME:-10s}" -parallel 1
+
 # Apply standard Go formatting across the module.
 fmt:
 	go fmt ./...

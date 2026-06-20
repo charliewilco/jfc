@@ -208,6 +208,19 @@ just bench
 
 This reports throughput and allocations for representative JSON, TOML, and Markdown inputs.
 
+## Fuzzing
+
+Longer correctness runs are available through:
+
+```bash
+just fuzz
+FUZZTIME=30s just fuzz-json
+FUZZTIME=30s just fuzz-toml
+FUZZTIME=30s just fuzz-markdown
+```
+
+The default fuzz duration is `10s` per target.
+
 ## Man Page
 
 A manual page is included at [man/jfc.1](man/jfc.1).
