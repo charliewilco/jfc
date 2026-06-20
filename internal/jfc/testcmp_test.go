@@ -61,8 +61,8 @@ func assertTOMLSemanticallyEqual(t testing.TB, want []byte, got []byte) {
 func assertMarkdownHTMLSemanticallyEqual(t testing.TB, want []byte, got []byte) {
 	t.Helper()
 
-	wantHTML := renderMarkdownHTML(t, want)
-	gotHTML := renderMarkdownHTML(t, got)
+	wantHTML := renderMarkdownHTML(t, []byte(normalizeLineEndingsToLF(string(want))))
+	gotHTML := renderMarkdownHTML(t, []byte(normalizeLineEndingsToLF(string(got))))
 
 	if diff := cmp.Diff(wantHTML, gotHTML); diff != "" {
 		t.Fatalf("Markdown HTML mismatch (-want +got):\n%s", diff)

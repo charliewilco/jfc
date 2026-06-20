@@ -243,6 +243,32 @@ func TestFormatMarkdownDoesNotTreatIndentedCodeAsFence(t *testing.T) {
 	assertStringEqual(t, string(input), string(output))
 }
 
+func TestFormatMarkdownPreservesIndentedCodeBlankLines(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("    alpha\n    \n    beta\n\t\n")
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	assertStringEqual(t, string(input), string(output))
+	assertMarkdownHTMLSemanticallyEqual(t, input, output)
+}
+
+func TestFormatMarkdownDoesNotTreatVerticalTabAsBlankLine(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("\v")
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	assertStringEqual(t, string(input)+"\n", string(output))
+	assertMarkdownHTMLSemanticallyEqual(t, input, output)
+}
+
 func TestFormatMarkdownRequiresMatchingFenceClose(t *testing.T) {
 	t.Parallel()
 
@@ -292,5 +318,31 @@ func TestFormatMarkdownDoesNotOpenBacktickFenceWithBacktickInfo(t *testing.T) {
 
 	expected := "``` `not an opener`\nblank follows   \n"
 	assertStringEqual(t, expected, string(output))
+	assertMarkdownHTMLSemanticallyEqual(t, input, output)
+}
+
+func TestFormatMarkdownDoesNotAddNewlineToUnclosedFence(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("```0")
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	assertStringEqual(t, string(input), string(output))
+	assertMarkdownHTMLSemanticallyEqual(t, input, output)
+}
+
+func TestFormatMarkdownPreservesTrailingNewlinesInUnclosedFence(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("```\n\n")
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	assertStringEqual(t, string(input), string(output))
 	assertMarkdownHTMLSemanticallyEqual(t, input, output)
 }

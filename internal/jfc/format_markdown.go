@@ -16,7 +16,8 @@ func formatMarkdown(input []byte, config Config) ([]byte, error) {
 
 	_ = goldmark.DefaultParser().Parse(text.NewReader(input))
 
-	lines := strings.Split(normalizeLineEndingsToLF(string(input)), "\n")
+	text := normalizeLineEndingsToLF(string(input))
+	lines := strings.Split(text, "\n")
 	inFence := false
 	fence := markdownFence{}
 	for i, line := range lines {
@@ -34,12 +35,19 @@ func formatMarkdown(input []byte, config Config) ([]byte, error) {
 			continue
 		}
 
-		if !inFence && strings.TrimSpace(line) == "" {
+		if !inFence && markdownBlankLineCanNormalize(line) {
 			lines[i] = ""
 		}
 	}
 
-	return applyOutputConventions(strings.Join(lines, "\n"), config), nil
+	output := strings.Join(lines, "\n")
+	if inFence {
+		if eol := config.endOfLineString(); eol != "\n" {
+			output = strings.ReplaceAll(output, "\n", eol)
+		}
+		return []byte(output), nil
+	}
+	return applyOutputConventions(output, config), nil
 }
 
 type markdownFence struct {
@@ -90,4 +98,19 @@ func markdownClosingFence(candidate markdownFence, opening markdownFence) bool {
 	return candidate.marker == opening.marker &&
 		candidate.length >= opening.length &&
 		strings.TrimSpace(candidate.rest) == ""
+}
+
+func markdownBlankLineCanNormalize(line string) bool {
+	indentWidth := 0
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case ' ':
+			indentWidth++
+		case '\t':
+			return false
+		default:
+			return false
+		}
+	}
+	return indentWidth < 4
 }

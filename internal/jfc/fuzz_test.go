@@ -66,12 +66,16 @@ func FuzzFormatTOMLPreservesSemanticsAndIsIdempotent(f *testing.F) {
 	})
 }
 
-func FuzzFormatMarkdownIsIdempotent(f *testing.F) {
+func FuzzFormatMarkdownPreservesRenderedHTMLAndIsIdempotent(f *testing.F) {
 	for _, seed := range []string{
 		"# Title\r\n   \r\nParagraph.\n",
 		"```go\nfmt.Println(\"x\")\n```\n",
 		"  ~~~json\n  {\"x\":1}\n  ~~~\n",
 		"    ```go\n    fmt.Println(\"indented code\")\n    ```\n",
+		"    alpha\n    \n    beta\n",
+		"\talpha\n\t\n\tbeta\n",
+		"````markdown\n```\n````\n",
+		"``` `not an opener`\nblank follows   \n\n",
 		"- item\n  - nested\n",
 		"> quote\n>\n> more\n",
 		"| a | b |\n| - | - |\n| 1 | 2 |\n",
@@ -90,5 +94,6 @@ func FuzzFormatMarkdownIsIdempotent(f *testing.F) {
 			t.Fatalf("formatMarkdown rejected its own output: %v\noutput:\n%s", err, output)
 		}
 		assertStringEqual(t, string(output), string(idempotent))
+		assertMarkdownHTMLSemanticallyEqual(t, []byte(input), output)
 	})
 }
