@@ -3,6 +3,8 @@ set -euo pipefail
 
 version="${VERSION:-dev}"
 dist_dir="${DIST_DIR:-dist}"
+host_goos="$(go env GOOS)"
+host_goarch="$(go env GOARCH)"
 targets=(
 	"darwin/amd64"
 	"darwin/arm64"
@@ -39,8 +41,16 @@ for target in "${targets[@]}"; do
 	package_dir="$work_dir/$package_name"
 	mkdir -p "$package_dir/man"
 
-	env GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 go build -trimpath -o "$package_dir/$binary" .
+	env GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 go build -trimpath -ldflags "-X github.com/charliewilco/jfc/internal/jfc.Version=$version" -o "$package_dir/$binary" .
 	cp man/jfc.1 "$package_dir/man/jfc.1"
+
+	if [ "$goos" = "$host_goos" ] && [ "$goarch" = "$host_goarch" ]; then
+		actual_version="$("$package_dir/$binary" --version)"
+		if [ "$actual_version" != "$version" ]; then
+			echo "expected $binary --version to print $version, got $actual_version" >&2
+			exit 1
+		fi
+	fi
 
 	archive="$dist_dir/$package_name.tar.gz"
 	tar -C "$work_dir" -czf "$archive" "$package_name"

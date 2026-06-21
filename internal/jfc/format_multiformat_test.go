@@ -88,6 +88,30 @@ func TestFormatYAMLPreservesCommentsAndUsesSpaceIndent(t *testing.T) {
 	}
 }
 
+func TestFormatYAMLPreservesMultiDocumentStreams(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("---\na: 1\n---\nb: 2\n")
+	output, err := formatYAML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatYAML returned error: %v", err)
+	}
+
+	expected := "a: 1\n---\nb: 2\n"
+	assertStringEqual(t, expected, string(output))
+}
+
+func TestFormatYAMLEmptyInputFormatsAsNull(t *testing.T) {
+	t.Parallel()
+
+	output, err := formatYAML(nil, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatYAML returned error: %v", err)
+	}
+
+	assertStringEqual(t, "null\n", string(output))
+}
+
 func TestFormatTOMLValidatesAndNormalizesAssignments(t *testing.T) {
 	t.Parallel()
 

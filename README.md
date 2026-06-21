@@ -101,6 +101,7 @@ cat payload.jsonc | jfc --stdin-filepath config/payload.jsonc
 - `--list-different`: print files that differ and exit `1` if any differ
 - `--config <path>`: use an explicit `jfc.toml`
 - `--stdin-filepath <path>`: resolve stdin config and format as if input came from that file
+- `--version`: print the `jfc` version
 - `--help`: print CLI usage
 
 ## Commands

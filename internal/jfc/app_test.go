@@ -292,6 +292,45 @@ func TestRunCheckSkipsIgnoredConfigPaths(t *testing.T) {
 	}
 }
 
+func TestRunCheckPrunesIgnoredConfigDirectories(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	ignoredConfig := filepath.Join(root, "dist", defaultConfigName)
+	ignoredFile := filepath.Join(root, "dist", "ignored.json")
+	checked := filepath.Join(root, "checked.json")
+	if err := os.MkdirAll(filepath.Dir(ignoredConfig), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte("ignore = [\"dist\"]\n"), 0o644); err != nil {
+		t.Fatalf("write root config: %v", err)
+	}
+	if err := os.WriteFile(ignoredConfig, []byte("tab_width = 0\n"), 0o644); err != nil {
+		t.Fatalf("write ignored config: %v", err)
+	}
+	if err := os.WriteFile(ignoredFile, []byte(`{"ignored":true}`), 0o644); err != nil {
+		t.Fatalf("write ignored file: %v", err)
+	}
+	if err := os.WriteFile(checked, []byte(`{"checked":true}`), 0o644); err != nil {
+		t.Fatalf("write checked file: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stdout = %q, stderr = %q", exitCode, exitDiff, stdout.String(), stderr.String())
+	}
+	if strings.TrimSpace(stdout.String()) != checked {
+		t.Fatalf("expected only checked path in stdout, got %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("expected ignored nested config to be skipped, got stderr %q", stderr.String())
+	}
+}
+
 func TestRunCheckSkipsStandardIgnoreSources(t *testing.T) {
 	t.Parallel()
 
@@ -1045,6 +1084,46 @@ func TestRunRejectsWriteWithStdin(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "--write cannot be used with stdin") {
 		t.Fatalf("expected stdin write error, got %q", stderr.String())
+	}
+}
+
+func TestRunVersionPrintsVersion(t *testing.T) {
+	original := Version
+	Version = "test-version"
+	defer func() {
+		Version = original
+	}()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--version"}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return t.TempDir(), nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+	assertStringEqual(t, "test-version\n", stdout.String())
+	if stderr.String() != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunVersionRejectsFileArguments(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--version", "package.json"}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return t.TempDir(), nil
+	})
+	if exitCode != exitError {
+		t.Fatalf("Run exit code = %d, want %d", exitCode, exitError)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "--version does not accept file arguments") {
+		t.Fatalf("expected version argument error, got %q", stderr.String())
 	}
 }
 

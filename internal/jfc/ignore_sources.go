@@ -29,6 +29,10 @@ func newStandardIgnoreLoader() *standardIgnoreLoader {
 }
 
 func (l *standardIgnoreLoader) ignores(filePath string) (bool, error) {
+	return l.ignoresPath(filePath, false)
+}
+
+func (l *standardIgnoreLoader) ignoresPath(filePath string, isDir bool) (bool, error) {
 	rules, err := l.rulesFor(filePath)
 	if err != nil {
 		return false, err
@@ -36,7 +40,7 @@ func (l *standardIgnoreLoader) ignores(filePath string) (bool, error) {
 
 	ignored := false
 	for _, rule := range rules {
-		matched, err := rule.matches(filePath, false)
+		matched, err := rule.matches(filePath, isDir)
 		if err != nil {
 			return false, err
 		}

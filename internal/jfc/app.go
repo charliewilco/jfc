@@ -23,6 +23,8 @@ const (
 const initConfigContents = `ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
 `
 
+var Version = "dev"
+
 type runMode int
 
 const (
@@ -47,9 +49,11 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 	diff := fs.Bool("diff", false, "Print formatting changes as a unified diff.")
 	configPath := fs.String("config", "", "Path to a jfc.toml config file.")
 	stdinFilepath := fs.String("stdin-filepath", "", "Treat stdin as if it came from this file path.")
+	version := fs.Bool("version", false, "Print the jfc version.")
 
 	fs.Usage = func() {
-		fmt.Fprintf(stderr, "Usage: jfc [--write|--check [--diff]|--list-different|--diff] [--config path] [--stdin-filepath path] [file ...]\n")
+		fmt.Fprintf(stderr, "Usage: jfc [--version]\n")
+		fmt.Fprintf(stderr, "       jfc [--write|--check [--diff]|--list-different|--diff] [--config path] [--stdin-filepath path] [file ...]\n")
 		fmt.Fprintf(stderr, "       jfc < file.json\n")
 		fmt.Fprintf(stderr, "       jfc init\n")
 		fmt.Fprintf(stderr, "Supported files: %s\n", supportedExtensionsText())
@@ -60,6 +64,14 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 			return exitSuccess
 		}
 		return exitError
+	}
+	if *version {
+		if fs.NArg() > 0 {
+			fmt.Fprintln(stderr, "jfc: --version does not accept file arguments")
+			return exitError
+		}
+		fmt.Fprintln(stdout, versionString())
+		return exitSuccess
 	}
 
 	mode, err := resolveMode(*write, *check, *listDifferent, *diff)
@@ -87,7 +99,7 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 		}
 	}
 
-	targets, err := collectTargets(paths)
+	targets, err := collectTargetsWithIgnores(paths, loader, standardIgnores)
 	if err != nil {
 		fmt.Fprintln(stderr, "jfc:", err)
 		return exitError
@@ -194,6 +206,13 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, get
 		return exitDiff
 	}
 	return exitSuccess
+}
+
+func versionString() string {
+	if Version != "" {
+		return Version
+	}
+	return "dev"
 }
 
 func runInit(args []string, stdout io.Writer, stderr io.Writer, getwd func() (string, error)) int {
@@ -343,17 +362,21 @@ func runStdin(mode runMode, stdin io.Reader, stdout io.Writer, stderr io.Writer,
 }
 
 func collectTargets(args []string) ([]string, error) {
+	return collectTargetsWithIgnores(args, nil, nil)
+}
+
+func collectTargetsWithIgnores(args []string, loader *configLoader, standardIgnores *standardIgnoreLoader) ([]string, error) {
 	seen := make(map[string]struct{})
 	var targets []string
 
 	for _, arg := range args {
-		expanded, err := expandArg(arg)
+		expanded, err := expandArgWithIgnores(arg, loader, standardIgnores)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, path := range expanded {
-			if err := appendTarget(path, seen, &targets); err != nil {
+			if err := appendTarget(path, seen, &targets, loader, standardIgnores); err != nil {
 				return nil, err
 			}
 		}
@@ -364,11 +387,15 @@ func collectTargets(args []string) ([]string, error) {
 }
 
 func expandArg(arg string) ([]string, error) {
+	return expandArgWithIgnores(arg, nil, nil)
+}
+
+func expandArgWithIgnores(arg string, loader *configLoader, standardIgnores *standardIgnoreLoader) ([]string, error) {
 	if !hasGlob(arg) {
 		return []string{arg}, nil
 	}
 	if hasRecursiveGlob(arg) {
-		return expandRecursiveGlob(arg)
+		return expandRecursiveGlobWithIgnores(arg, loader, standardIgnores)
 	}
 
 	matches, err := filepath.Glob(arg)
@@ -391,6 +418,10 @@ func hasRecursiveGlob(pattern string) bool {
 }
 
 func expandRecursiveGlob(pattern string) ([]string, error) {
+	return expandRecursiveGlobWithIgnores(pattern, nil, nil)
+}
+
+func expandRecursiveGlobWithIgnores(pattern string, loader *configLoader, standardIgnores *standardIgnoreLoader) ([]string, error) {
 	root := recursiveGlobRoot(pattern)
 	if _, err := os.Stat(root); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -406,6 +437,27 @@ func expandRecursiveGlob(pattern string) ([]string, error) {
 		}
 		if entry.IsDir() && entry.Name() == ".git" {
 			return filepath.SkipDir
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+		if entry.IsDir() && filepath.Clean(current) != filepath.Clean(root) {
+			ignored, err := ignoredPath(current, true, loader, standardIgnores)
+			if err != nil {
+				return err
+			}
+			if ignored {
+				return filepath.SkipDir
+			}
+		}
+		if !entry.IsDir() {
+			ignored, err := ignoredPath(current, false, loader, standardIgnores)
+			if err != nil {
+				return err
+			}
+			if ignored {
+				return nil
+			}
 		}
 		matched, err := matchRecursiveGlob(pattern, current)
 		if err != nil {
@@ -502,7 +554,7 @@ func matchGlobSegments(patternSegments []string, candidateSegments []string) (bo
 	return matchGlobSegments(patternSegments[1:], candidateSegments[1:])
 }
 
-func appendTarget(path string, seen map[string]struct{}, targets *[]string) error {
+func appendTarget(path string, seen map[string]struct{}, targets *[]string, loader *configLoader, standardIgnores *standardIgnoreLoader) error {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return fmt.Errorf("stat %s: %w", path, err)
@@ -533,7 +585,23 @@ func appendTarget(path string, seen map[string]struct{}, targets *[]string) erro
 			if entry.Type()&os.ModeSymlink != 0 {
 				return nil
 			}
+			if entry.IsDir() && filepath.Clean(current) != filepath.Clean(path) {
+				ignored, err := ignoredPath(current, true, loader, standardIgnores)
+				if err != nil {
+					return err
+				}
+				if ignored {
+					return filepath.SkipDir
+				}
+			}
 			if entry.IsDir() {
+				return nil
+			}
+			ignored, err := ignoredPath(current, false, loader, standardIgnores)
+			if err != nil {
+				return err
+			}
+			if ignored {
 				return nil
 			}
 			if _, ok := detectFormat(entry.Name()); !ok {
@@ -550,6 +618,24 @@ func appendTarget(path string, seen map[string]struct{}, targets *[]string) erro
 
 	addUnique(path, seen, targets)
 	return nil
+}
+
+func ignoredPath(path string, isDir bool, loader *configLoader, standardIgnores *standardIgnoreLoader) (bool, error) {
+	if loader != nil {
+		cfg, err := loader.forFile(path)
+		if err != nil {
+			return false, err
+		}
+		ignored, err := cfg.ignores(path)
+		if err != nil || ignored {
+			return ignored, err
+		}
+	}
+
+	if standardIgnores != nil {
+		return standardIgnores.ignoresPath(path, isDir)
+	}
+	return false, nil
 }
 
 func addUnique(path string, seen map[string]struct{}, targets *[]string) {

@@ -6,6 +6,7 @@ import (
 )
 
 const diffContextLines = 3
+const maxDiffMatrixCells = 2_000_000
 
 type diffOpKind int
 
@@ -89,6 +90,81 @@ func splitDiffLines(content string) splitDiffResult {
 }
 
 func diffLineOps(oldLines []string, newLines []string) []diffOp {
+	prefix := commonPrefixLines(oldLines, newLines)
+	suffix := commonSuffixLines(oldLines[prefix:], newLines[prefix:])
+
+	ops := make([]diffOp, 0, len(oldLines)+len(newLines))
+	for _, line := range oldLines[:prefix] {
+		ops = append(ops, diffOp{kind: diffEqual, line: line})
+	}
+
+	oldMiddle := oldLines[prefix : len(oldLines)-suffix]
+	newMiddle := newLines[prefix : len(newLines)-suffix]
+	ops = append(ops, boundedDiffLineOps(oldMiddle, newMiddle)...)
+
+	for _, line := range oldLines[len(oldLines)-suffix:] {
+		ops = append(ops, diffOp{kind: diffEqual, line: line})
+	}
+	return ops
+}
+
+func commonPrefixLines(oldLines []string, newLines []string) int {
+	limit := min(len(oldLines), len(newLines))
+	for i := 0; i < limit; i++ {
+		if oldLines[i] != newLines[i] {
+			return i
+		}
+	}
+	return limit
+}
+
+func commonSuffixLines(oldLines []string, newLines []string) int {
+	limit := min(len(oldLines), len(newLines))
+	for i := 0; i < limit; i++ {
+		if oldLines[len(oldLines)-1-i] != newLines[len(newLines)-1-i] {
+			return i
+		}
+	}
+	return limit
+}
+
+func boundedDiffLineOps(oldLines []string, newLines []string) []diffOp {
+	if len(oldLines) == 0 {
+		ops := make([]diffOp, 0, len(newLines))
+		for _, line := range newLines {
+			ops = append(ops, diffOp{kind: diffInsert, line: line})
+		}
+		return ops
+	}
+	if len(newLines) == 0 {
+		ops := make([]diffOp, 0, len(oldLines))
+		for _, line := range oldLines {
+			ops = append(ops, diffOp{kind: diffDelete, line: line})
+		}
+		return ops
+	}
+	if diffMatrixTooLarge(len(oldLines), len(newLines)) {
+		return replacementDiffLineOps(oldLines, newLines)
+	}
+	return lcsDiffLineOps(oldLines, newLines)
+}
+
+func diffMatrixTooLarge(oldLineCount int, newLineCount int) bool {
+	return oldLineCount+1 > maxDiffMatrixCells/(newLineCount+1)
+}
+
+func replacementDiffLineOps(oldLines []string, newLines []string) []diffOp {
+	ops := make([]diffOp, 0, len(oldLines)+len(newLines))
+	for _, line := range oldLines {
+		ops = append(ops, diffOp{kind: diffDelete, line: line})
+	}
+	for _, line := range newLines {
+		ops = append(ops, diffOp{kind: diffInsert, line: line})
+	}
+	return ops
+}
+
+func lcsDiffLineOps(oldLines []string, newLines []string) []diffOp {
 	lcs := make([][]int, len(oldLines)+1)
 	for i := range lcs {
 		lcs[i] = make([]int, len(newLines)+1)
