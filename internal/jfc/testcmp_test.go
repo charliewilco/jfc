@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	toml "github.com/pelletier/go-toml/v2"
 	"github.com/yuin/goldmark"
+	"gopkg.in/yaml.v3"
 )
 
 func assertStringEqual(t testing.TB, want string, got string) {
@@ -73,6 +74,44 @@ func assertTOMLSemanticallyEqual(t testing.TB, want []byte, got []byte) {
 	if diff := cmp.Diff(wantValue, gotValue, cmpopts.EquateNaNs()); diff != "" {
 		t.Fatalf("TOML semantic mismatch (-want +got):\n%s", diff)
 	}
+}
+
+func assertYAMLStreamSemanticallyEqual(t testing.TB, want []byte, got []byte) {
+	t.Helper()
+
+	wantDocuments, err := decodeYAMLStream(want)
+	if err != nil {
+		t.Fatalf("parse expected YAML stream: %v", err)
+	}
+
+	gotDocuments, err := decodeYAMLStream(got)
+	if err != nil {
+		t.Fatalf("parse actual YAML stream: %v", err)
+	}
+
+	if diff := cmp.Diff(wantDocuments, gotDocuments, cmpopts.EquateEmpty()); diff != "" {
+		t.Fatalf("YAML stream semantic mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func decodeYAMLStream(input []byte) ([]any, error) {
+	decoder := yaml.NewDecoder(bytes.NewReader(input))
+	var documents []any
+	for {
+		var document any
+		err := decoder.Decode(&document)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		documents = append(documents, document)
+	}
+	if len(documents) == 0 {
+		documents = append(documents, nil)
+	}
+	return documents, nil
 }
 
 func assertMarkdownHTMLSemanticallyEqual(t testing.TB, want []byte, got []byte) {

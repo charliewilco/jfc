@@ -222,6 +222,34 @@ func TestRunCheckDiffPrintsUnifiedDiffForStdinFilepath(t *testing.T) {
 	}
 }
 
+func TestRunDiffHandlesLargeChangedFile(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	target := filepath.Join(root, "events.jsonl")
+	input := strings.Repeat("{\"z\":1,\"a\":2}\n", 1600)
+	if err := os.WriteFile(target, []byte(input), 0o644); err != nil {
+		t.Fatalf("write jsonl: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--diff", target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stderr = %s", exitCode, exitDiff, stderr.String())
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "--- "+target+"\n+++ "+target+"\n") {
+		t.Fatalf("expected unified diff headers in stdout, got %q", output)
+	}
+	if !strings.Contains(output, `-{"z":1,"a":2}`) || !strings.Contains(output, `+{"z": 1, "a": 2}`) {
+		t.Fatalf("expected JSONL formatting changes in diff, got %q", output)
+	}
+}
+
 func TestRunCheckReturnsErrorWhenAnyTargetCannotFormat(t *testing.T) {
 	t.Parallel()
 
@@ -1105,6 +1133,27 @@ func TestRunVersionPrintsVersion(t *testing.T) {
 	assertStringEqual(t, "test-version\n", stdout.String())
 	if stderr.String() != "" {
 		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestModuleVersionStringUsesTaggedVersions(t *testing.T) {
+	t.Parallel()
+
+	if got := moduleVersionString("v0.1.1"); got != "0.1.1" {
+		t.Fatalf("moduleVersionString tagged version = %q, want 0.1.1", got)
+	}
+	if got := moduleVersionString("v1.2.3"); got != "1.2.3" {
+		t.Fatalf("moduleVersionString tagged major version = %q, want 1.2.3", got)
+	}
+}
+
+func TestModuleVersionStringRejectsDevelopmentVersions(t *testing.T) {
+	t.Parallel()
+
+	for _, version := range []string{"", "(devel)", "v0.0.0-20260621000000-abcdef123456", "v0.1.1+dirty"} {
+		if got := moduleVersionString(version); got != "" {
+			t.Fatalf("moduleVersionString(%q) = %q, want empty string", version, got)
+		}
 	}
 }
 

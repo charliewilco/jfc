@@ -99,6 +99,7 @@ func TestFormatYAMLPreservesMultiDocumentStreams(t *testing.T) {
 
 	expected := "a: 1\n---\nb: 2\n"
 	assertStringEqual(t, expected, string(output))
+	assertYAMLStreamSemanticallyEqual(t, input, output)
 }
 
 func TestFormatYAMLEmptyInputFormatsAsNull(t *testing.T) {

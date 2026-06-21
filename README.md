@@ -32,9 +32,12 @@ Install the latest version with Go:
 
 ```bash
 go install github.com/charliewilco/jfc@latest
+jfc --version
 ```
 
 Download checksummed release archives from GitHub Releases when tagged builds are available. Release archives contain the `jfc` binary and `man/jfc.1` for Darwin, Linux, and Windows on `amd64` and `arm64`.
+
+Homebrew packaging is not published yet; use Go install or GitHub release archives for now.
 
 Build from source in a local checkout:
 
@@ -236,6 +239,7 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go install github.com/charliewilco/jfc@latest
+      - run: jfc --version
       - run: jfc --check --diff .
 ```
 

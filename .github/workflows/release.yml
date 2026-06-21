@@ -41,6 +41,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          cat > release-notes.md <<'NOTES'
+          jfc formats common project files with one CLI:
+
+          - Formats JSON, JSONC, JSONL/NDJSON, YAML, TOML, and Markdown.
+          - Supports stdout, stdin, in-place writes, check mode, list-different mode, and unified diffs.
+          - Reads nearest `jfc.toml` config files and supports explicit `--config` and `--stdin-filepath`.
+          - Respects jfc-specific ignores plus `.ignore`, `.gitignore`, and `.git/info/exclude`.
+          - Includes `jfc init` for minimal config generation and `jfc --version` for install verification.
+          - Release archives include the `jfc` binary and `man/jfc.1` for Darwin, Linux, and Windows on amd64 and arm64.
+          NOTES
           gh release create "$GITHUB_REF_NAME" dist/* \
             --title "$GITHUB_REF_NAME" \
-            --notes "Checksummed jfc release artifacts for Darwin, Linux, and Windows on amd64 and arm64."
+            --notes-file release-notes.md

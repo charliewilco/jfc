@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"strings"
 )
@@ -23,7 +24,7 @@ const (
 const initConfigContents = `ignore = ["dist", "vendor", "node_modules", "*.generated.*"]
 `
 
-var Version = "dev"
+var Version string
 
 type runMode int
 
@@ -212,7 +213,19 @@ func versionString() string {
 	if Version != "" {
 		return Version
 	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if version := moduleVersionString(info.Main.Version); version != "" {
+			return version
+		}
+	}
 	return "dev"
+}
+
+func moduleVersionString(version string) string {
+	if version == "" || version == "(devel)" || strings.HasPrefix(version, "v0.0.0-") || strings.Contains(version, "+dirty") {
+		return ""
+	}
+	return strings.TrimPrefix(version, "v")
 }
 
 func runInit(args []string, stdout io.Writer, stderr io.Writer, getwd func() (string, error)) int {
@@ -431,33 +444,17 @@ func expandRecursiveGlobWithIgnores(pattern string, loader *configLoader, standa
 	}
 
 	var matches []string
+	policy := newTargetWalkPolicy(root, loader, standardIgnores)
 	err := filepath.WalkDir(root, func(current string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() && entry.Name() == ".git" {
-			return filepath.SkipDir
+		skip, err := policy.skipEntry(current, entry)
+		if err != nil {
+			return err
 		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			return nil
-		}
-		if entry.IsDir() && filepath.Clean(current) != filepath.Clean(root) {
-			ignored, err := ignoredPath(current, true, loader, standardIgnores)
-			if err != nil {
-				return err
-			}
-			if ignored {
-				return filepath.SkipDir
-			}
-		}
-		if !entry.IsDir() {
-			ignored, err := ignoredPath(current, false, loader, standardIgnores)
-			if err != nil {
-				return err
-			}
-			if ignored {
-				return nil
-			}
+		if skip {
+			return skipWalkEntry(entry)
 		}
 		matched, err := matchRecursiveGlob(pattern, current)
 		if err != nil {
@@ -575,33 +572,19 @@ func appendTarget(path string, seen map[string]struct{}, targets *[]string, load
 	}
 
 	if info.IsDir() {
+		policy := newTargetWalkPolicy(path, loader, standardIgnores)
 		return filepath.WalkDir(path, func(current string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
-			if entry.IsDir() && entry.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			if entry.Type()&os.ModeSymlink != 0 {
-				return nil
-			}
-			if entry.IsDir() && filepath.Clean(current) != filepath.Clean(path) {
-				ignored, err := ignoredPath(current, true, loader, standardIgnores)
-				if err != nil {
-					return err
-				}
-				if ignored {
-					return filepath.SkipDir
-				}
-			}
-			if entry.IsDir() {
-				return nil
-			}
-			ignored, err := ignoredPath(current, false, loader, standardIgnores)
+			skip, err := policy.skipEntry(current, entry)
 			if err != nil {
 				return err
 			}
-			if ignored {
+			if skip {
+				return skipWalkEntry(entry)
+			}
+			if entry.IsDir() {
 				return nil
 			}
 			if _, ok := detectFormat(entry.Name()); !ok {
@@ -617,6 +600,40 @@ func appendTarget(path string, seen map[string]struct{}, targets *[]string, load
 	}
 
 	addUnique(path, seen, targets)
+	return nil
+}
+
+type targetWalkPolicy struct {
+	root            string
+	loader          *configLoader
+	standardIgnores *standardIgnoreLoader
+}
+
+func newTargetWalkPolicy(root string, loader *configLoader, standardIgnores *standardIgnoreLoader) targetWalkPolicy {
+	return targetWalkPolicy{
+		root:            filepath.Clean(root),
+		loader:          loader,
+		standardIgnores: standardIgnores,
+	}
+}
+
+func (p targetWalkPolicy) skipEntry(path string, entry fs.DirEntry) (bool, error) {
+	if entry.IsDir() && entry.Name() == ".git" {
+		return true, nil
+	}
+	if entry.Type()&os.ModeSymlink != 0 {
+		return true, nil
+	}
+	if entry.IsDir() && filepath.Clean(path) == p.root {
+		return false, nil
+	}
+	return ignoredPath(path, entry.IsDir(), p.loader, p.standardIgnores)
+}
+
+func skipWalkEntry(entry fs.DirEntry) error {
+	if entry.IsDir() {
+		return filepath.SkipDir
+	}
 	return nil
 }
 
