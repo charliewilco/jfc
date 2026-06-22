@@ -1,6 +1,6 @@
 .TH JFC 1 "2026-06-22" "jfc" "User Commands"
 .SH NAME
-jfc \- format JSON, TOML, YAML, Markdown, JSONL, and JSONC
+jfc \- format JSON, TOML, YAML, Markdown, JSONL, JSONC, and experimental XML, CSV, TSV, dotenv, and HCL
 .SH SYNOPSIS
 .B jfc
 [\fB--version\fR]
@@ -15,14 +15,14 @@ jfc \- format JSON, TOML, YAML, Markdown, JSONL, and JSONC
 .SH DESCRIPTION
 .B jfc
 means either "jesus fucking christ" or "just format correctly".
-It is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC.
+It is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, JSONC, and experimental XML, CSV, TSV, dotenv, and HCL.
 Point it at one of those files, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
 Its scope is format-first, not purpose-first: files do not need to be configuration files to be formatted.
 Its strongest structured layout controls are for JSON-family files.
 TOML is validated and safely normalized without losing comments or order.
 Markdown is treated as a safe whitespace normalizer, not a prose rewriter.
 .PP
-Supported formats are JSON, JSONC, JSONL, YAML, TOML, and Markdown.
+Supported formats are JSON, JSONC, JSONL, YAML, TOML, Markdown, and experimental XML, CSV, TSV, dotenv, and HCL.
 When no file arguments are provided, or when a lone
 .B -
 is passed, input is read from standard input.
@@ -77,6 +77,31 @@ formatted through
 .TP
 .B Markdown
 .I .md, .markdown
+.TP
+.B XML
+.I .xml, .svg, .plist, .xib, .storyboard, .csproj, .vbproj, .fsproj, .props, .targets, .pom
+,
+experimental.
+.TP
+.B CSV
+.I .csv
+,
+experimental validate-only support.
+.TP
+.B TSV
+.I .tsv
+,
+experimental validate-only support.
+.TP
+.B dotenv
+.I .env, .env.*, *.env
+,
+experimental common assignment normalization.
+.TP
+.B HCL
+.I .hcl, .tf, .tfvars, .nomad
+,
+experimental formatting through HashiCorp HCL tooling.
 .SH OPTIONS
 .TP
 .B --write
@@ -172,11 +197,11 @@ is provided.
 Supported top-level keys:
 .TP
 .B use_tabs
-Use hard tabs for JSON indentation.
-YAML always uses spaces because hard-tab indentation is invalid YAML.
+Use hard tabs for JSON and XML indentation.
+YAML and HCL always use spaces because that is the expected style for those formats.
 .TP
 .B tab_width
-Visual width for one indent level and YAML indentation spaces.
+Visual width for one indent level, XML indentation, and YAML indentation spaces.
 .TP
 .B print_width
 Target width used to decide whether JSON arrays and objects should remain inline when expansion is set to
@@ -270,6 +295,34 @@ It does not rewrite tables, arrays, or prose in comments.
 .B Markdown
 Conservatively normalizes line endings, safe blank-line whitespace, and safe final-newline conventions.
 It does not reflow prose or reindent code blocks.
+.TP
+.B XML
+Experimental.
+Pretty-prints element-only XML while preserving token order, element order, attribute order, comments, processing instructions, and directives.
+XML containing CDATA or mixed element/text content is validated and only output conventions are applied.
+.TP
+.B CSV and TSV
+Experimental and validate-only.
+Jfc parses records to catch malformed quoting or inconsistent field counts, then preserves existing bytes except for the configured final-newline policy.
+It does not canonicalize quoting, delimiter spacing, record separators, or embedded newlines.
+.TP
+.B dotenv
+Experimental and limited to a common core: optional
+.BR export ,
+keys made from letters, digits after the first character, and underscores, and
+.B KEY=value
+assignment spacing.
+Comments, blank lines, non-assignment lines, and values are preserved.
+Dialect-specific interpolation and quoting rules are not interpreted.
+.TP
+.B HCL
+Experimental.
+Uses HashiCorp's HCL parser and formatter for syntax formatting.
+It may format Terraform files such as
+.I .tf
+and
+.IR .tfvars ,
+but does not add Terraform project semantics.
 .SH EXIT STATUS
 .TP
 .B 0

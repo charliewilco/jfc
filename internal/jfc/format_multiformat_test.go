@@ -160,6 +160,189 @@ func TestFormatYAMLEmptyInputFormatsAsNull(t *testing.T) {
 	assertStringEqual(t, "null\n", string(output))
 }
 
+func TestFormatXMLPrettyPrintsElementOnlyDocuments(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(`<?xml version="1.0"?><!-- keep --><root b="2" a="1"><child/><nested><leaf name="ok"/></nested></root>`)
+	output, err := formatXML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatXML returned error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		`<?xml version="1.0"?>`,
+		`<!-- keep -->`,
+		`<root b="2" a="1">`,
+		`  <child/>`,
+		`  <nested>`,
+		`    <leaf name="ok"/>`,
+		`  </nested>`,
+		`</root>`,
+		``,
+	}, "\n")
+	assertStringEqual(t, expected, string(output))
+}
+
+func TestFormatXMLPreservesDirectivesAndProcessingInstructions(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(`<?xml version="1.0"?><!DOCTYPE note SYSTEM "Note.dtd"><?xml-stylesheet href="style.css"?><note><to>Tove</to></note>`)
+	output, err := formatXML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatXML returned error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		`<?xml version="1.0"?>`,
+		`<!DOCTYPE note SYSTEM "Note.dtd">`,
+		`<?xml-stylesheet href="style.css"?>`,
+		`<note>`,
+		`  <to>Tove</to>`,
+		`</note>`,
+		``,
+	}, "\n")
+	assertStringEqual(t, expected, string(output))
+}
+
+func TestFormatXMLUsesTabsWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.UseTabs = true
+	output, err := formatXML([]byte(`<root><child><leaf/></child></root>`), cfg)
+	if err != nil {
+		t.Fatalf("formatXML returned error: %v", err)
+	}
+
+	expected := "<root>\n\t<child>\n\t\t<leaf/>\n\t</child>\n</root>\n"
+	assertStringEqual(t, expected, string(output))
+}
+
+func TestFormatXMLRejectsMalformedInput(t *testing.T) {
+	t.Parallel()
+
+	_, err := formatXML([]byte(`<root><child></root>`), DefaultConfig())
+	if err == nil || !strings.Contains(err.Error(), "expected </child>") {
+		t.Fatalf("expected XML mismatch error, got %v", err)
+	}
+}
+
+func TestFormatXMLFallsBackForMixedTextContent(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("<p>Hello <strong>world</strong>!</p>\r\n")
+	output, err := formatXML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatXML returned error: %v", err)
+	}
+
+	assertStringEqual(t, "<p>Hello <strong>world</strong>!</p>\n", string(output))
+}
+
+func TestFormatXMLFallsBackForCDATA(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("<root><![CDATA[<not-xml>]]></root>")
+	output, err := formatXML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatXML returned error: %v", err)
+	}
+
+	assertStringEqual(t, "<root><![CDATA[<not-xml>]]></root>\n", string(output))
+}
+
+func TestFormatCSVValidatesAndPreservesBytes(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("name,notes\r\nalice,\"hello\r\nworld\"")
+	output, err := formatCSV(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatCSV returned error: %v", err)
+	}
+
+	assertStringEqual(t, "name,notes\r\nalice,\"hello\r\nworld\"\n", string(output))
+}
+
+func TestFormatCSVRejectsMalformedInput(t *testing.T) {
+	t.Parallel()
+
+	_, err := formatCSV([]byte("name,notes\nalice,\"unterminated\n"), DefaultConfig())
+	if err == nil || !strings.Contains(err.Error(), "extraneous or missing") {
+		t.Fatalf("expected CSV parse error, got %v", err)
+	}
+}
+
+func TestFormatTSVValidatesAndPreservesBytes(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("name\tnotes\nalice\thello")
+	output, err := formatTSV(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatTSV returned error: %v", err)
+	}
+
+	assertStringEqual(t, "name\tnotes\nalice\thello\n", string(output))
+}
+
+func TestFormatDotenvNormalizesAssignments(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("# keep\r\n export KEY = value  \nQUOTED = \" spaced value \"\nINLINE = value # comment\nNO_VALUE\n")
+	output, err := formatDotenv(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatDotenv returned error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		"# keep",
+		"export KEY=value",
+		"QUOTED=\" spaced value \"",
+		"INLINE=value # comment",
+		"NO_VALUE",
+		"",
+	}, "\n")
+	assertStringEqual(t, expected, string(output))
+}
+
+func TestFormatDotenvRejectsInvalidAssignmentKey(t *testing.T) {
+	t.Parallel()
+
+	_, err := formatDotenv([]byte("1BAD=value\n"), DefaultConfig())
+	if err == nil || !strings.Contains(err.Error(), "invalid dotenv key") {
+		t.Fatalf("expected dotenv key error, got %v", err)
+	}
+}
+
+func TestFormatHCLFormatsWithHashiCorpStyle(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("resource \"thing\" \"example\" {\nname=\"ok\"\nsetting {\nvalue=1\n}\n}\n")
+	output, err := formatHCL(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatHCL returned error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		`resource "thing" "example" {`,
+		`  name = "ok"`,
+		`  setting {`,
+		`    value = 1`,
+		`  }`,
+		`}`,
+		``,
+	}, "\n")
+	assertStringEqual(t, expected, string(output))
+}
+
+func TestFormatHCLRejectsMalformedInput(t *testing.T) {
+	t.Parallel()
+
+	_, err := formatHCL([]byte(`resource "thing" "example" {`), DefaultConfig())
+	if err == nil {
+		t.Fatal("expected HCL parse error")
+	}
+}
+
 func TestFormatTOMLValidatesAndNormalizesAssignments(t *testing.T) {
 	t.Parallel()
 

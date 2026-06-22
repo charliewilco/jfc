@@ -12,7 +12,7 @@ Start here, then open the smallest deeper document needed for the task.
 
 ## Project Structure
 
-`jfc` is a Go CLI rooted at `main.go`. Core implementation lives in `internal/jfc`, with format-specific files such as `format_jsonc.go`, `format_yaml.go`, and `format_markdown.go`. Tests sit beside package code as `*_test.go`. Golden fixtures and sample inputs live under `internal/jfc/testdata/format`. Release packaging checks live in `scripts/release-check.sh`.
+`jfc` is a Go CLI rooted at `main.go`. Core implementation lives in `internal/jfc`, with format-specific files such as `format_jsonc.go`, `format_yaml.go`, `format_markdown.go`, `format_xml.go`, `format_csv.go`, `format_env.go`, and `format_hcl.go`. Tests sit beside package code as `*_test.go`. Golden fixtures and sample inputs live under `internal/jfc/testdata/format`. Release packaging checks live in `scripts/release-check.sh`.
 
 ## Commands
 
@@ -44,6 +44,10 @@ Start here, then open the smallest deeper document needed for the task.
 - There is no `.jfcignore`; do not add one.
 - Standard ignore files remain external ignore sources, not jfc config files.
 - Format support is format-first, not purpose-first; supported files are not limited to configuration files.
+- XML support is experimental; preserve CDATA and mixed text content by falling back to validation-only behavior.
+- CSV/TSV support is experimental and validate-only; do not serialize records into a new canonical form without a separate safety design.
+- Dotenv support is experimental; keep it to the documented common assignment core unless variant rules and fixtures are added first.
+- HCL support is experimental and delegated to HashiCorp tooling; do not add Terraform project semantics.
 - Markdown formatting must stay conservative and must not reflow prose.
 - YAML data loss is a highest-priority formatter bug class.
 - Be careful with path traversal, symlink handling, recursive directory walks, and in-place writes.

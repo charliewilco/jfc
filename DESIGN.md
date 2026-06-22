@@ -1,6 +1,6 @@
 # Design
 
-`jfc` serves developers who want one dependable formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC files.
+`jfc` serves developers who want one dependable formatter for JSON, TOML, YAML, Markdown, JSONL, JSONC, and experimental XML, CSV, TSV, dotenv, and HCL files.
 
 These formats are the product boundary. A file does not need to be a configuration file, manifest, schema, fixture, or generated artifact to belong; it only needs to be one of the supported formats.
 
@@ -34,6 +34,14 @@ TOML is validated and conservatively normalized. It should preserve comments, or
 
 Markdown is intentionally a whitespace normalizer. It may normalize line endings, safe blank-line whitespace, and final newlines. It must not reflow prose, reindent code blocks, or treat Markdown as a document rewrite target.
 
+XML is experimental. Element-only XML may be indented. XML with CDATA or mixed text content must be validated without structural pretty-printing so text semantics are not changed.
+
+CSV and TSV are experimental validate-only formats. They should catch malformed rows, quoting, and inconsistent field counts without reserializing records or changing embedded field data.
+
+Dotenv is experimental and supports a documented common core. It may normalize assignment spacing around `=`, including optional `export`, but must not interpret interpolation, escape sequences, or dialect-specific quoting without a new policy and tests.
+
+HCL is experimental and delegated to HashiCorp's HCL parser and formatter. jfc may format `.tf` and `.tfvars` files, but it must not become Terraform-aware beyond HCL syntax formatting.
+
 ## Traversal Model
 
 Directory traversal is recursive, but only supported file extensions become formatter targets. Traversal prunes ignored directories early, skips `.git`, and does not follow symlinked directories or symlinked files found during a walk.
@@ -46,5 +54,9 @@ Explicit symlinked file arguments are accepted when the link path has a supporte
 - No implicit config merging.
 - No limiting supported formats to configuration files.
 - No prose reflow for Markdown.
+- No XML rewriting when CDATA or mixed text content is present.
+- No CSV/TSV canonical serialization without a separate design for quoting, embedded newlines, and consumer compatibility.
+- No dotenv dialect expansion without explicit variant rules and fixtures.
+- No Terraform project semantics for HCL.
 - No broad package-manager distribution before Go install and GitHub release archives are reliable.
 - No GitHub Actions polish as a substitute for boring CLI behavior and clear docs.

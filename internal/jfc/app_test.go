@@ -745,6 +745,25 @@ func TestCollectTargetsIncludesAllSupportedExtensions(t *testing.T) {
 		"tool.toml",
 		"README.md",
 		"README.markdown",
+		"document.xml",
+		"vector.svg",
+		"Info.plist",
+		"View.xib",
+		"Main.storyboard",
+		"App.csproj",
+		"App.vbproj",
+		"App.fsproj",
+		"Build.props",
+		"Build.targets",
+		"artifact.pom",
+		"data.csv",
+		"data.tsv",
+		".env.local",
+		"example.env",
+		"main.tf",
+		"vars.tfvars",
+		"policy.hcl",
+		"job.nomad",
 		"main.go",
 	}
 	for _, name := range names {
@@ -938,6 +957,11 @@ func TestRunWriteTraversesSupportedFormats(t *testing.T) {
 		"config.yaml":     "root:\n  child: value\n",
 		"tool.toml":       "name=\"jfc\"\n",
 		"README.markdown": "# Title\r\n   \r\n",
+		"document.xml":    `<root><child/></root>`,
+		"data.csv":        "name,value\njfc,1",
+		"data.tsv":        "name\tvalue\njfc\t1",
+		".env.local":      "KEY = value\n",
+		"main.tf":         "resource \"thing\" \"example\" {\nname=\"ok\"\n}\n",
 	}
 	for name, contents := range files {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(contents), 0o644); err != nil {
@@ -957,7 +981,7 @@ func TestRunWriteTraversesSupportedFormats(t *testing.T) {
 		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
 	}
 
-	for _, name := range []string{"data.json", "settings.jsonc", "events.jsonl", "tool.toml", "README.markdown"} {
+	for _, name := range []string{"data.json", "settings.jsonc", "events.jsonl", "tool.toml", "README.markdown", "document.xml", "data.csv", "data.tsv", ".env.local", "main.tf"} {
 		if !strings.Contains(stdout.String(), filepath.Join(root, name)) {
 			t.Fatalf("expected %s in stdout, got %q", name, stdout.String())
 		}
@@ -1108,6 +1132,85 @@ func TestRunStdinFilepathSelectsMarkdownFormatter(t *testing.T) {
 		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
 	}
 	assertStringEqual(t, "# Title\n", stdout.String())
+}
+
+func TestRunStdinFilepathSelectsXMLFormatter(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run(
+		[]string{"--stdin-filepath", "document.xml"},
+		strings.NewReader("<root><child/></root>"),
+		&stdout,
+		&stderr,
+		func() (string, error) {
+			return t.TempDir(), nil
+		},
+	)
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+	assertStringEqual(t, "<root>\n  <child/>\n</root>\n", stdout.String())
+}
+
+func TestRunStdinFilepathSelectsNewExperimentalFormatters(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name          string
+		stdinFilepath string
+		input         string
+		expected      string
+	}{
+		{
+			name:          "csv",
+			stdinFilepath: "data.csv",
+			input:         "name,value\njfc,1",
+			expected:      "name,value\njfc,1\n",
+		},
+		{
+			name:          "tsv",
+			stdinFilepath: "data.tsv",
+			input:         "name\tvalue\njfc\t1",
+			expected:      "name\tvalue\njfc\t1\n",
+		},
+		{
+			name:          "dotenv",
+			stdinFilepath: ".env.local",
+			input:         "KEY = value",
+			expected:      "KEY=value\n",
+		},
+		{
+			name:          "hcl",
+			stdinFilepath: "main.tf",
+			input:         "resource \"thing\" \"example\" {\nname=\"ok\"\n}\n",
+			expected:      "resource \"thing\" \"example\" {\n  name = \"ok\"\n}\n",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := Run(
+				[]string{"--stdin-filepath", tc.stdinFilepath},
+				strings.NewReader(tc.input),
+				&stdout,
+				&stderr,
+				func() (string, error) {
+					return t.TempDir(), nil
+				},
+			)
+			if exitCode != exitSuccess {
+				t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+			}
+			assertStringEqual(t, tc.expected, stdout.String())
+		})
+	}
 }
 
 func TestRunRejectsUnsupportedExplicitFile(t *testing.T) {

@@ -1,6 +1,6 @@
 # Architecture
 
-`jfc` is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC. It should stay boring in the best sense: predictable config, conservative formatting, simple traversal, and clear errors when a supported file cannot be handled safely.
+`jfc` is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, JSONC, and experimental XML, CSV, TSV, dotenv, and HCL. It should stay boring in the best sense: predictable config, conservative formatting, simple traversal, and clear errors when a supported file cannot be handled safely.
 
 This document is the high-level map. Product behavior lives in `DESIGN.md`, agent workflow guidance lives in `AGENTS.md`, and current quality gaps live in `QUALITY_SCORE.md`.
 
@@ -11,7 +11,7 @@ This document is the high-level map. Product behavior lives in `DESIGN.md`, agen
 - `internal/jfc/config.go` owns `jfc.toml` loading, nearest-config discovery, schema validation, and jfc-specific ignore patterns.
 - `internal/jfc/ignore_sources.go` owns standard ignore sources: `.ignore`, `.gitignore`, and `.git/info/exclude`.
 - `internal/jfc/parser.go`, `document.go`, and `format.go` define supported formats and route inputs to the right formatter.
-- `internal/jfc/format_jsonc.go`, `format_jsonl.go`, `format_markdown.go`, `format_toml.go`, and `format_yaml.go` contain format-specific behavior. Keep format policy local to these files when possible.
+- `internal/jfc/format_csv.go`, `format_env.go`, `format_hcl.go`, `format_jsonc.go`, `format_jsonl.go`, `format_markdown.go`, `format_toml.go`, `format_yaml.go`, and `format_xml.go` contain format-specific behavior. Keep format policy local to these files when possible.
 - `internal/jfc/diff.go` produces unified diffs for check and preview modes.
 - `internal/jfc/*_test.go` holds unit, integration, conformance, fuzz seed, fixture, and benchmark coverage beside the package.
 - `internal/jfc/testdata/format` contains readable formatter fixtures and golden outputs.
@@ -37,9 +37,13 @@ For files and directories, target collection walks supported files only. The for
 - Standard external ignore sources are supported, but they are not jfc config files.
 - Directory traversal skips `.git`, ignored directories, symlinked directories, and symlinked files discovered while walking.
 - Explicit unsupported file arguments are errors. Unsupported files found through directory traversal are skipped.
-- Format support is format-first, not purpose-first. JSON, TOML, YAML, Markdown, JSONL, and JSONC files are in scope whether or not they are configuration files.
+- Format support is format-first, not purpose-first. JSON, TOML, YAML, Markdown, JSONL, JSONC, XML-family, CSV, TSV, dotenv, and HCL files are in scope whether or not they are configuration files.
 - Markdown formatting must remain conservative and must not reflow prose.
 - YAML formatting must treat data loss as the highest-priority bug class.
+- XML formatting is experimental. Pretty-print only structurally safe XML; validate and preserve CDATA or mixed text content.
+- CSV and TSV formatting is experimental and validate-only. Do not serialize records into a new canonical form until a separate design proves embedded newline, quoting, and consumer-compatibility behavior.
+- Dotenv formatting is experimental. Normalize only the documented common assignment core; do not interpret interpolation, escaping, or dialect-specific quoting without tests and docs.
+- HCL formatting is experimental and delegated to HashiCorp HCL tooling. Do not add Terraform project semantics around it.
 - Generated release archives must contain the binary and `man/jfc.1`, and `checksums.txt` must cover every archive.
 
 ## Cross-Cutting Concerns
@@ -47,5 +51,7 @@ For files and directories, target collection walks supported files only. The for
 Configuration and ignore handling are security-sensitive because they affect which files get read or rewritten. Keep config discovery, ignore bases, and traversal pruning covered by integration tests before changing walk behavior.
 
 Formatter safety is more important than output cleverness. When a format parser preserves comments, anchors, tags, ordering, or scalar style, tests should prove the behavior. When a parser cannot preserve something safely, the formatter should fail loudly or document the boundary.
+
+Experimental format families need promotion evidence before they become boring support: real fixtures, malformed-input tests, stdin routing tests, traversal coverage, and explicit safety notes in README and the man page.
 
 Distribution should remain simple until the CLI behavior is stable: Go install and GitHub release archives first, package managers later. Signing, provenance, and checksum verification are release-hardening concerns tracked in `QUALITY_SCORE.md`.

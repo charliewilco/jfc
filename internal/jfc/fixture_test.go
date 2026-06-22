@@ -33,6 +33,14 @@ func TestFormatDocumentFixtures(t *testing.T) {
 		{name: "markdown_fences", input: "markdown_fences.input.md", golden: "markdown_fences.golden.md"},
 		{name: "readme_markdown", input: "readme.input.md", golden: "readme.golden.md"},
 		{name: "changelog_markdown", input: "changelog.input.md", golden: "changelog.golden.md"},
+		{name: "xml", input: "xml.input.xml", golden: "xml.golden.xml"},
+		{name: "svg", input: "svg.input.svg", golden: "svg.golden.svg"},
+		{name: "plist", input: "plist.input.plist", golden: "plist.golden.plist"},
+		{name: "csproj", input: "csproj.input.csproj", golden: "csproj.golden.csproj"},
+		{name: "csv", input: "csv.input.csv", golden: "csv.golden.csv"},
+		{name: "tsv", input: "tsv.input.tsv", golden: "tsv.golden.tsv"},
+		{name: "dotenv", input: "dotenv.input.env", golden: "dotenv.golden.env"},
+		{name: "terraform", input: "terraform.input.tf", golden: "terraform.golden.tf"},
 	}
 
 	for _, fixture := range fixtures {

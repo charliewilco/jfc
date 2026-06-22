@@ -2,11 +2,11 @@
 
 swear to god, i thought `jq` just did this, but here we are
 
-`jfc` means either "jesus fucking christ" or "just format correctly".
+`jfc` means either "JSON format clean" or "jesus fucking christ" or "just format correctly".
 
-`jfc` is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC. Point it at one of those files, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
+`jfc` is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, JSONC, and experimental XML, CSV, TSV, dotenv, and HCL. Point it at one of those files, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
 
-The scope is format-first, not purpose-first. `jfc` formats JSON files, TOML files, YAML files, Markdown files, JSONL files, and JSONC files whether they are configs, schemas, notes, manifests, docs, fixtures, or generated data.
+The scope is format-first, not purpose-first. `jfc` formats JSON files, TOML files, YAML files, Markdown files, JSONL files, JSONC files, XML-family files, CSV files, TSV files, dotenv files, and HCL files whether they are configs, schemas, notes, manifests, docs, fixtures, or generated data.
 
 ```bash
 jfc package.json
@@ -27,6 +27,11 @@ It is intentionally conservative. JSON-family files get the strongest structured
 | YAML | `.yaml`, `.yml` | Preserves mapping order and comments through `yaml.v3` AST formatting. |
 | TOML | `.toml` | Validates TOML and normalizes assignment spacing while preserving comments/order. |
 | Markdown | `.md`, `.markdown` | Conservative whitespace normalization; no prose reflow. |
+| XML | `.xml`, `.svg`, `.plist`, `.xib`, `.storyboard`, `.csproj`, `.vbproj`, `.fsproj`, `.props`, `.targets`, `.pom` | Experimental; pretty-prints element-only XML and falls back to validation-only for CDATA or mixed text content. |
+| CSV | `.csv` | Experimental; validates CSV shape and preserves bytes except final-newline policy. |
+| TSV | `.tsv` | Experimental; validates tab-delimited shape and preserves bytes except final-newline policy. |
+| dotenv | `.env`, `.env.*`, `*.env` | Experimental; normalizes common assignment spacing and preserves comments, blank lines, and values. |
+| HCL | `.hcl`, `.tf`, `.tfvars`, `.nomad` | Experimental; validates and formats with HashiCorp HCL tooling. |
 
 ## Install
 
@@ -173,8 +178,8 @@ ignore = ["dist", "*.generated.json"]
 
 ### Config Reference
 
-- `use_tabs`: use hard tabs for JSON indentation. YAML always uses spaces because hard-tab indentation is invalid YAML.
-- `tab_width`: visual width for tabs and YAML indentation spaces
+- `use_tabs`: use hard tabs for JSON and XML indentation. YAML and HCL always use spaces because hard-tab indentation is not the expected style for those formats.
+- `tab_width`: visual width for tabs, XML indentation, and YAML indentation spaces
 - `print_width`: target width used for JSON `auto` expansion decisions
 - `trailing_newline`: append a final newline when true
 - `sort_keys`: sort JSON, JSONC, and JSONL object keys lexicographically when true
@@ -194,6 +199,14 @@ ignore = ["dist", "*.generated.json"]
 - YAML is parsed and encoded with `yaml.v3`; jfc controls indentation and output conventions but does not expose a full YAML style system.
 - TOML formatting is intentionally conservative: invalid TOML is rejected, assignment spacing is normalized, and comments/order are preserved. It does not rewrite tables, arrays, or prose in comments.
 - Markdown formatting is intentionally conservative: line endings, safe blank-line whitespace, and safe final-newline conventions are normalized, but prose and code blocks are not rewrapped or reindented.
+- XML formatting is experimental and conservative: well-formed element-only documents are indented while token order, element order, attribute order, comments, processing instructions, and directives are preserved. XML containing CDATA or mixed element/text content is validated and only output conventions are applied.
+- CSV and TSV formatting is experimental and validate-only. jfc parses records to catch malformed quoting or inconsistent field counts, then preserves existing bytes except for the configured final-newline policy. It does not canonicalize quoting, delimiter spacing, record separators, or embedded newlines.
+- Dotenv formatting is experimental and limited to a common core: optional `export`, keys made from letters, digits after the first character, and underscores, and `KEY=value` assignment spacing. Comments, blank lines, non-assignment lines, and values are preserved; dialect-specific interpolation and quoting rules are not interpreted.
+- HCL formatting is experimental and uses HashiCorp's HCL parser and formatter. It overlaps intentionally with `terraform fmt` for `.tf` and `.tfvars`, but jfc's goal is format-family coverage, not Terraform-specific project behavior.
+
+## Experimental Format Boundaries
+
+XML, CSV, TSV, dotenv, and HCL are experimental. Promote them only after real-repo fixture coverage proves the formatter is boring across common files. CSV/TSV should stay validate-only unless canonical serialization is explicitly designed. Dotenv support should grow only by spelling out variant rules first. HCL should stay delegated to HashiCorp tooling instead of becoming a Terraform-aware formatter.
 
 ## Cookbook
 
