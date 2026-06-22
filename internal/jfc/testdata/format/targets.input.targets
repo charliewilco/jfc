@@ -1,0 +1,1 @@
+<Project><Target Name="Format"><Message Text="jfc"/><ItemGroup><Content Include="schema.json"></Content></ItemGroup></Target></Project>

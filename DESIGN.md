@@ -34,7 +34,7 @@ TOML is validated and conservatively normalized. It should preserve comments, or
 
 Markdown is intentionally a whitespace normalizer. It may normalize line endings, safe blank-line whitespace, and final newlines. It must not reflow prose, reindent code blocks, or treat Markdown as a document rewrite target.
 
-XML is experimental. Element-only XML may be indented. XML with CDATA, mixed text content, multiline text elements, `xml:space="preserve"`, or multiline/tabbed attributes must be validated without structural pretty-printing so text semantics and SVG authoring details are not changed.
+XML is experimental. Element-only XML may be indented, and explicit empty tags must not be rewritten into self-closing tags or vice versa. XML with CDATA, mixed text content, multiline text elements, `xml:space="preserve"`, or multiline/tabbed attributes must be validated without structural pretty-printing so text semantics and SVG authoring details are not changed.
 
 CSV and TSV are experimental validate-only formats. They should catch malformed rows, quoting, and inconsistent field counts without reserializing records or changing embedded field data.
 
@@ -54,7 +54,7 @@ Explicit symlinked file arguments are accepted when the link path has a supporte
 - No implicit config merging.
 - No limiting supported formats to configuration files.
 - No prose reflow for Markdown.
-- No XML rewriting when CDATA or mixed text content is present.
+- No XML rewriting when CDATA, mixed text content, multiline text elements, `xml:space="preserve"`, or multiline/tabbed attributes are present.
 - No CSV/TSV canonical serialization without a separate design for quoting, embedded newlines, and consumer compatibility.
 - No dotenv dialect expansion without explicit variant rules and fixtures.
 - No Terraform project semantics for HCL.

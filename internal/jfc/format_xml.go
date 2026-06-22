@@ -19,6 +19,8 @@ type xmlNode struct {
 	name        xml.Name
 	attr        []xml.Attr
 	text        string
+	startOffset int64
+	selfClosing bool
 	comment     string
 	target      string
 	instruction string
@@ -86,15 +88,17 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 
 		switch tok := token.(type) {
 		case xml.StartElement:
+			startOffset := decoder.InputOffset()
 			for _, attr := range tok.Attr {
 				if xmlAttrRequiresPreserve(attr) {
 					preserveOnly = true
 				}
 			}
 			node := &xmlNode{
-				kind: xmlNodeElement,
-				name: tok.Name,
-				attr: append([]xml.Attr(nil), tok.Attr...),
+				kind:        xmlNodeElement,
+				name:        tok.Name,
+				attr:        append([]xml.Attr(nil), tok.Attr...),
+				startOffset: startOffset,
 			}
 			if len(stack) == 0 {
 				rootElements++
@@ -111,12 +115,16 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 			}
 			stack = append(stack, node)
 		case xml.EndElement:
+			endOffset := decoder.InputOffset()
 			if len(stack) == 0 {
 				return xmlDocument{}, false, fmt.Errorf("XML syntax error: unexpected end element </%s>", xmlRenderName(tok.Name))
 			}
 			current := stack[len(stack)-1]
 			if current.name.Space != tok.Name.Space || current.name.Local != tok.Name.Local {
 				return xmlDocument{}, false, fmt.Errorf("XML syntax error: expected </%s>, got </%s>", xmlRenderName(current.name), xmlRenderName(tok.Name))
+			}
+			if len(current.children) == 0 && current.text == "" {
+				current.selfClosing = current.startOffset == endOffset
 			}
 			stack = stack[:len(stack)-1]
 		case xml.CharData:
@@ -224,7 +232,10 @@ func renderXMLElement(node *xmlNode, depth int, config Config) []string {
 	indent := xmlIndent(depth, config)
 	start := indent + "<" + xmlRenderName(node.name) + xmlRenderAttrs(node.attr)
 	if len(node.children) == 0 && node.text == "" {
-		return []string{start + "/>"}
+		if node.selfClosing {
+			return []string{start + "/>"}
+		}
+		return []string{start + "></" + xmlRenderName(node.name) + ">"}
 	}
 	if len(node.children) == 0 {
 		return []string{start + ">" + xmlEscapeText(node.text) + "</" + xmlRenderName(node.name) + ">"}

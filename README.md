@@ -27,7 +27,7 @@ It is intentionally conservative. JSON-family files get the strongest structured
 | YAML | `.yaml`, `.yml` | Preserves mapping order and comments through `yaml.v3` AST formatting. |
 | TOML | `.toml` | Validates TOML and normalizes assignment spacing while preserving comments/order. |
 | Markdown | `.md`, `.markdown` | Conservative whitespace normalization; no prose reflow. |
-| XML | `.xml`, `.svg`, `.plist`, `.xib`, `.storyboard`, `.csproj`, `.vbproj`, `.fsproj`, `.props`, `.targets`, `.pom` | Experimental; pretty-prints element-only XML and falls back to validation-only for CDATA, mixed text content, and whitespace-sensitive SVG/XML content. |
+| XML | `.xml`, `.svg`, `.plist`, `.xib`, `.storyboard`, `.csproj`, `.vbproj`, `.fsproj`, `.props`, `.targets`, `.pom` | Experimental; pretty-prints element-only XML, preserves empty-element spelling, and falls back to validation-only for CDATA, mixed text content, and whitespace-sensitive SVG/XML content. |
 | CSV | `.csv` | Experimental; validates CSV shape and preserves bytes except final-newline policy. |
 | TSV | `.tsv` | Experimental; validates tab-delimited shape and preserves bytes except final-newline policy. |
 | dotenv | `.env`, `.env.*`, `*.env` | Experimental; normalizes common assignment spacing and preserves comments, blank lines, and values. |
@@ -199,14 +199,14 @@ ignore = ["dist", "*.generated.json"]
 - YAML is parsed and encoded with `yaml.v3`; jfc controls indentation and output conventions but does not expose a full YAML style system.
 - TOML formatting is intentionally conservative: invalid TOML is rejected, assignment spacing is normalized, and comments/order are preserved. It does not rewrite tables, arrays, or prose in comments.
 - Markdown formatting is intentionally conservative: line endings, safe blank-line whitespace, and safe final-newline conventions are normalized, but prose and code blocks are not rewrapped or reindented.
-- XML formatting is experimental and conservative: well-formed element-only documents are indented while token order, element order, attribute order, comments, processing instructions, and directives are preserved. XML containing CDATA, mixed element/text content, multiline text elements, `xml:space="preserve"`, or multiline/tabbed attributes is validated and only output conventions are applied.
+- XML formatting is experimental and conservative: well-formed element-only documents are indented while token order, element order, attribute order, empty-element spelling, comments, processing instructions, and directives are preserved. XML containing CDATA, mixed element/text content, multiline text elements, `xml:space="preserve"`, or multiline/tabbed attributes is validated and only output conventions are applied.
 - CSV and TSV formatting is experimental and validate-only. jfc parses records to catch malformed quoting or inconsistent field counts, then preserves existing bytes except for the configured final-newline policy. It does not canonicalize quoting, delimiter spacing, record separators, or embedded newlines.
 - Dotenv formatting is experimental and limited to a common core: optional `export`, keys made from letters, digits after the first character, and underscores, and `KEY=value` assignment spacing. Comments, blank lines, non-assignment lines, and values are preserved; dialect-specific interpolation and quoting rules are not interpreted.
 - HCL formatting is experimental and uses HashiCorp's HCL parser and formatter. It overlaps intentionally with `terraform fmt` for `.tf` and `.tfvars`, but jfc's goal is format-family coverage, not Terraform-specific project behavior.
 
 ## Experimental Format Boundaries
 
-XML, CSV, TSV, dotenv, and HCL are experimental. Promote them only after real-repo fixture coverage proves the formatter is boring across common files. CSV/TSV should stay validate-only unless canonical serialization is explicitly designed. Dotenv support should grow only by spelling out variant rules first. HCL should stay delegated to HashiCorp tooling instead of becoming a Terraform-aware formatter.
+XML, CSV, TSV, dotenv, and HCL are experimental. Promote XML only after real-repo plist, storyboard, SVG, and MSBuild-style fixtures are boring, XML-family fixture outputs are validator-backed, and local dogfood does not expose token-shape surprises. CSV/TSV should stay validate-only unless canonical serialization is explicitly designed. Dotenv support should grow only by spelling out variant rules first. HCL should stay delegated to HashiCorp tooling instead of becoming a Terraform-aware formatter.
 
 ## Cookbook
 

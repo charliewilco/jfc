@@ -44,7 +44,7 @@ Start here, then open the smallest deeper document needed for the task.
 - There is no `.jfcignore`; do not add one.
 - Standard ignore files remain external ignore sources, not jfc config files.
 - Format support is format-first, not purpose-first; supported files are not limited to configuration files.
-- XML support is experimental; preserve CDATA, mixed text content, multiline text elements, `xml:space="preserve"`, and multiline/tabbed attributes by falling back to validation-only behavior.
+- XML support is experimental; preserve empty-element spelling, and preserve CDATA, mixed text content, multiline text elements, `xml:space="preserve"`, and multiline/tabbed attributes by falling back to validation-only behavior.
 - CSV/TSV support is experimental and validate-only; do not serialize records into a new canonical form without a separate safety design.
 - Dotenv support is experimental; keep it to the documented common assignment core unless variant rules and fixtures are added first.
 - HCL support is experimental and delegated to HashiCorp tooling; do not add Terraform project semantics.

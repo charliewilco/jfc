@@ -1,7 +1,11 @@
 package jfc
 
 import (
+	"bytes"
+	"encoding/xml"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -34,11 +38,16 @@ func TestFormatDocumentFixtures(t *testing.T) {
 		{name: "readme_markdown", input: "readme.input.md", golden: "readme.golden.md"},
 		{name: "changelog_markdown", input: "changelog.input.md", golden: "changelog.golden.md"},
 		{name: "xml", input: "xml.input.xml", golden: "xml.golden.xml"},
+		{name: "xml_doctype_entity", input: "xml_doctype_entity.input.xml", golden: "xml_doctype_entity.golden.xml"},
 		{name: "svg", input: "svg.input.svg", golden: "svg.golden.svg"},
+		{name: "svg_explicit_empty", input: "svg_explicit_empty.input.svg", golden: "svg_explicit_empty.golden.svg"},
 		{name: "svg_preserve_attribute", input: "svg_preserve_attribute.input.svg", golden: "svg_preserve_attribute.golden.svg"},
 		{name: "svg_style_text", input: "svg_style_text.input.svg", golden: "svg_style_text.golden.svg"},
 		{name: "plist", input: "plist.input.plist", golden: "plist.golden.plist"},
+		{name: "storyboard", input: "storyboard.input.storyboard", golden: "storyboard.golden.storyboard"},
 		{name: "csproj", input: "csproj.input.csproj", golden: "csproj.golden.csproj"},
+		{name: "props", input: "props.input.props", golden: "props.golden.props"},
+		{name: "targets", input: "targets.input.targets", golden: "targets.golden.targets"},
 		{name: "csv", input: "csv.input.csv", golden: "csv.golden.csv"},
 		{name: "tsv", input: "tsv.input.tsv", golden: "tsv.golden.tsv"},
 		{name: "dotenv", input: "dotenv.input.env", golden: "dotenv.golden.env"},
@@ -73,6 +82,7 @@ func TestFormatDocumentFixtures(t *testing.T) {
 			}
 			assertStringEqual(t, string(expected), string(output))
 			assertFixtureSemanticsEqual(t, format, input, output)
+			assertFixtureValidatorAccepts(t, inputPath, output)
 
 			idempotent, err := formatDocument(expected, format, DefaultConfig())
 			if err != nil {
@@ -81,6 +91,70 @@ func TestFormatDocumentFixtures(t *testing.T) {
 			assertStringEqual(t, string(expected), string(idempotent))
 		})
 	}
+}
+
+func assertFixtureValidatorAccepts(t testing.TB, inputPath string, output []byte) {
+	t.Helper()
+
+	format, ok := detectFormat(inputPath)
+	if !ok || format != FormatXML {
+		return
+	}
+	assertXMLWellFormed(t, output)
+	assertXMLLintAccepts(t, inputPath, output)
+	if filepath.Ext(inputPath) == ".plist" {
+		assertPlutilAccepts(t, inputPath, output)
+	}
+}
+
+func assertXMLWellFormed(t testing.TB, output []byte) {
+	t.Helper()
+
+	decoder := xml.NewDecoder(bytes.NewReader(output))
+	for {
+		if _, err := decoder.RawToken(); err != nil {
+			if err == io.EOF {
+				return
+			}
+			t.Fatalf("XML output is not well-formed: %v", err)
+		}
+	}
+}
+
+func assertXMLLintAccepts(t testing.TB, inputPath string, output []byte) {
+	t.Helper()
+
+	xmllint, err := exec.LookPath("xmllint")
+	if err != nil {
+		return
+	}
+	path := writeValidationTempFile(t, inputPath, output)
+	if commandOutput, err := exec.Command(xmllint, "--noout", path).CombinedOutput(); err != nil {
+		t.Fatalf("xmllint rejected XML output: %v\n%s", err, commandOutput)
+	}
+}
+
+func assertPlutilAccepts(t testing.TB, inputPath string, output []byte) {
+	t.Helper()
+
+	plutil, err := exec.LookPath("plutil")
+	if err != nil {
+		return
+	}
+	path := writeValidationTempFile(t, inputPath, output)
+	if commandOutput, err := exec.Command(plutil, "-lint", path).CombinedOutput(); err != nil {
+		t.Fatalf("plutil rejected plist output: %v\n%s", err, commandOutput)
+	}
+}
+
+func writeValidationTempFile(t testing.TB, inputPath string, output []byte) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "fixture"+filepath.Ext(inputPath))
+	if err := os.WriteFile(path, output, 0o644); err != nil {
+		t.Fatalf("write validation temp file: %v", err)
+	}
+	return path
 }
 
 func TestFormatJSONCSortCommentFixture(t *testing.T) {

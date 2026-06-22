@@ -204,6 +204,25 @@ func TestFormatXMLPreservesDirectivesAndProcessingInstructions(t *testing.T) {
 	assertStringEqual(t, expected, string(output))
 }
 
+func TestFormatXMLPreservesExplicitEmptyElementShape(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(`<root><selfclosing/><explicit></explicit></root>`)
+	output, err := formatXML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatXML returned error: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		`<root>`,
+		`  <selfclosing/>`,
+		`  <explicit></explicit>`,
+		`</root>`,
+		``,
+	}, "\n")
+	assertStringEqual(t, expected, string(output))
+}
+
 func TestFormatXMLUsesTabsWhenConfigured(t *testing.T) {
 	t.Parallel()
 
