@@ -43,6 +43,7 @@ Start here, then open the smallest deeper document needed for the task.
 - `ignore = [...]` in a nearer config replaces the parent config's jfc-specific ignore list.
 - There is no `.jfcignore`; do not add one.
 - Standard ignore files remain external ignore sources, not jfc config files.
+- Format support is format-first, not purpose-first; supported files are not limited to configuration files.
 - Markdown formatting must stay conservative and must not reflow prose.
 - YAML data loss is a highest-priority formatter bug class.
 - Be careful with path traversal, symlink handling, recursive directory walks, and in-place writes.

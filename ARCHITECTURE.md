@@ -37,6 +37,7 @@ For files and directories, target collection walks supported files only. The for
 - Standard external ignore sources are supported, but they are not jfc config files.
 - Directory traversal skips `.git`, ignored directories, symlinked directories, and symlinked files discovered while walking.
 - Explicit unsupported file arguments are errors. Unsupported files found through directory traversal are skipped.
+- Format support is format-first, not purpose-first. JSON, TOML, YAML, Markdown, JSONL, and JSONC files are in scope whether or not they are configuration files.
 - Markdown formatting must remain conservative and must not reflow prose.
 - YAML formatting must treat data loss as the highest-priority bug class.
 - Generated release archives must contain the binary and `man/jfc.1`, and `checksums.txt` must cover every archive.

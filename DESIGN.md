@@ -2,6 +2,8 @@
 
 `jfc` serves developers who want one dependable formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC files.
 
+These formats are the product boundary. A file does not need to be a configuration file, manifest, schema, fixture, or generated artifact to belong; it only needs to be one of the supported formats.
+
 The user model is direct:
 
 - Format one file to stdout while inspecting the result.
@@ -42,6 +44,7 @@ Explicit symlinked file arguments are accepted when the link path has a supporte
 
 - No `.jfcignore`.
 - No implicit config merging.
+- No limiting supported formats to configuration files.
 - No prose reflow for Markdown.
 - No broad package-manager distribution before Go install and GitHub release archives are reliable.
 - No GitHub Actions polish as a substitute for boring CLI behavior and clear docs.

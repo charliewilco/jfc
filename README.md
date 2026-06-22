@@ -4,11 +4,13 @@ swear to god, i thought `jq` just did this, but here we are
 
 `jfc` means either "jesus fucking christ" or "just format correctly".
 
-`jfc` is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC. Point it at a supported file, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
+`jfc` is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC. Point it at one of those files, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
+
+The scope is format-first, not purpose-first. `jfc` formats JSON files, TOML files, YAML files, Markdown files, JSONL files, and JSONC files whether they are configs, schemas, notes, manifests, docs, fixtures, or generated data.
 
 ```bash
 jfc package.json
-jfc Cargo.toml
+jfc data.toml
 jfc --write .
 jfc --check --diff .
 ```
@@ -68,16 +70,16 @@ The default mode formats one file or stdin to stdout:
 
 ```bash
 jfc file.json
-jfc config.toml
+jfc data.toml
 cat file.json | jfc
-cat config.toml | jfc --stdin-filepath config.toml
+cat data.toml | jfc --stdin-filepath data.toml
 ```
 
 Use `--write` when you want files changed in place:
 
 ```bash
 jfc --write package.json
-jfc --write Cargo.toml
+jfc --write data.toml
 jfc --write .
 ```
 
@@ -204,14 +206,14 @@ jfc package.json
 Format one TOML file:
 
 ```bash
-jfc Cargo.toml
+jfc data.toml
 ```
 
 Rewrite one file:
 
 ```bash
 jfc --write package.json
-jfc --write pyproject.toml
+jfc --write data.toml
 ```
 
 Format supported files in a mixed repo:

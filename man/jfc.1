@@ -16,7 +16,8 @@ jfc \- format JSON, TOML, YAML, Markdown, JSONL, and JSONC
 .B jfc
 means either "jesus fucking christ" or "just format correctly".
 It is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC.
-Point it at a supported file, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
+Point it at one of those files, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
+Its scope is format-first, not purpose-first: files do not need to be configuration files to be formatted.
 Its strongest structured layout controls are for JSON-family files.
 TOML is validated and safely normalized without losing comments or order.
 Markdown is treated as a safe whitespace normalizer, not a prose rewriter.
@@ -290,10 +291,10 @@ Format a JSON file to stdout:
 .B jfc package.json
 .TP
 Format a TOML file to stdout:
-.B jfc Cargo.toml
+.B jfc data.toml
 .TP
 Rewrite one file in place:
-.B jfc --write pyproject.toml
+.B jfc --write data.toml
 .TP
 Format Markdown stdin with Markdown inference:
 .B cat README.md | jfc --stdin-filepath README.md
