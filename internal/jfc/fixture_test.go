@@ -23,6 +23,7 @@ func TestFormatDocumentFixtures(t *testing.T) {
 		{name: "events_ndjson", input: "events.input.ndjson", golden: "events.golden.ndjson"},
 		{name: "yaml", input: "yaml.input.yaml", golden: "yaml.golden.yaml"},
 		{name: "workflow_yaml", input: "workflow.input.yaml", golden: "workflow.golden.yaml"},
+		{name: "docker_compose_yaml", input: "docker_compose.input.yaml", golden: "docker_compose.golden.yaml"},
 		{name: "toml", input: "toml.input.toml", golden: "toml.golden.toml"},
 		{name: "toml_multiline", input: "toml_multiline.input.toml", golden: "toml_multiline.golden.toml"},
 		{name: "toml_edges", input: "toml_edges.input.toml", golden: "toml_edges.golden.toml"},
@@ -110,6 +111,8 @@ func assertFixtureSemanticsEqual(t testing.TB, format FormatKind, input []byte, 
 		assertJSONSemanticallyEqual(t, input, output)
 	case FormatTOML:
 		assertTOMLSemanticallyEqual(t, input, output)
+	case FormatYAML:
+		assertYAMLStreamSemanticallyEqual(t, input, output)
 	case FormatMarkdown:
 		assertMarkdownHTMLSemanticallyEqual(t, input, output)
 	}

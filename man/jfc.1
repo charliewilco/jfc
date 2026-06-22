@@ -1,4 +1,4 @@
-.TH JFC 1 "2026-06-16" "jfc" "User Commands"
+.TH JFC 1 "2026-06-22" "jfc" "User Commands"
 .SH NAME
 jfc \- format common project files with one nearest TOML config
 .SH SYNOPSIS
@@ -140,6 +140,30 @@ By default,
 looks for
 .B jfc.toml
 starting from the file being formatted and walking upward toward the filesystem root.
+Discovery is nearest-file wins: each target uses the closest
+.B jfc.toml
+in its own directory or an ancestor directory.
+Config files do not merge.
+If a repository has
+.BR Z/jfc.toml ,
+.BR Z/A/jfc.toml ,
+and
+.BR Z/B/jfc.toml ,
+files under
+.B Z/A
+use
+.BR Z/A/jfc.toml ,
+files under
+.B Z/B
+use
+.BR Z/B/jfc.toml ,
+and files under
+.B Z/C
+use
+.BR Z/jfc.toml .
+In particular, an
+.B ignore
+array in a nearer config replaces the parent config's jfc-specific ignore list for targets beneath it.
 If stdin is used, discovery starts from the current working directory unless
 .B --stdin-filepath
 is provided.
@@ -306,5 +330,19 @@ Verify the installed binary with:
 Tagged release archives contain the
 .B jfc
 binary and this man page for Darwin, Linux, and Windows on amd64 and arm64.
+Verify downloaded archives from the release directory with:
+.IP
+.EX
+sha256sum -c checksums.txt
+.EE
+.IP
+or, on macOS without GNU coreutils:
+.IP
+.EX
+shasum -a 256 -c checksums.txt
+.EE
+.IP
+Release provenance and signing are not published yet.
+Checksummed GitHub release archives and Go install are the supported distribution paths for now.
 .SH SEE ALSO
 .BR jq (1)

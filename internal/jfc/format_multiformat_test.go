@@ -102,6 +102,53 @@ func TestFormatYAMLPreservesMultiDocumentStreams(t *testing.T) {
 	assertYAMLStreamSemanticallyEqual(t, input, output)
 }
 
+func TestFormatYAMLPreservesFeatureRichDocuments(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(strings.Join([]string{
+		"%YAML 1.1",
+		"---",
+		"# keep leading comment",
+		"defaults: &defaults",
+		"  image: !!str 1.0",
+		"  command: >",
+		"    echo alpha",
+		"    echo beta",
+		"service:",
+		"  <<: *defaults",
+		"  tag: !Ref value",
+		"  list:",
+		"    - first",
+		"    - second # keep inline comment",
+		"---",
+		"ordered:",
+		"  z: 1",
+		"  a: 2",
+		"",
+	}, "\n"))
+	output, err := formatYAML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatYAML returned error: %v", err)
+	}
+
+	got := string(output)
+	for _, fragment := range []string{
+		"# keep leading comment",
+		"&defaults",
+		"*defaults",
+		"!!str 1.0",
+		"!Ref value",
+		">",
+		"# keep inline comment",
+		"z: 1\n  a: 2",
+	} {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("expected YAML output to contain %q, got:\n%s", fragment, got)
+		}
+	}
+	assertYAMLStreamSemanticallyEqual(t, input, output)
+}
+
 func TestFormatYAMLEmptyInputFormatsAsNull(t *testing.T) {
 	t.Parallel()
 

@@ -8,6 +8,16 @@ import (
 	"testing"
 )
 
+func assertFileContents(t testing.TB, path string, expected string) {
+	t.Helper()
+
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	assertStringEqual(t, expected, string(contents))
+}
+
 func TestFormatJSONUsesTabsWhenExpanded(t *testing.T) {
 	t.Parallel()
 
@@ -96,6 +106,63 @@ func TestRunWriteDiscoversNearestConfig(t *testing.T) {
 	if strings.TrimSpace(stdout.String()) != target {
 		t.Fatalf("expected written path in stdout, got %q", stdout.String())
 	}
+}
+
+func TestRunWriteUsesNearestConfigAcrossNestedTree(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	left := filepath.Join(root, "left")
+	right := filepath.Join(root, "right")
+	child := filepath.Join(left, "child")
+	for _, dir := range []string{left, right, child} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+
+	files := map[string]string{
+		filepath.Join(root, "root.json"):         `{"z":1,"a":2}`,
+		filepath.Join(left, "left.json"):         `{"z":1,"a":2}`,
+		filepath.Join(right, "right.json"):       `{"z":1,"a":2}`,
+		filepath.Join(child, "child.json"):       `{"z":1,"a":2}`,
+		filepath.Join(left, "sibling", "s.json"): `{"z":1,"a":2}`,
+	}
+	if err := os.MkdirAll(filepath.Join(left, "sibling"), 0o755); err != nil {
+		t.Fatalf("mkdir sibling: %v", err)
+	}
+	for path, contents := range files {
+		if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+
+	configs := map[string]string{
+		filepath.Join(root, defaultConfigName):  "sort_keys = false\nobject_expand = \"never\"\n",
+		filepath.Join(left, defaultConfigName):  "sort_keys = true\nobject_expand = \"never\"\n",
+		filepath.Join(right, defaultConfigName): "sort_keys = false\nobject_expand = \"always\"\nuse_tabs = true\n",
+		filepath.Join(child, defaultConfigName): "sort_keys = false\nobject_expand = \"always\"\n",
+	}
+	for path, contents := range configs {
+		if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+			t.Fatalf("write config %s: %v", path, err)
+		}
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--write", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+
+	assertFileContents(t, filepath.Join(root, "root.json"), "{\"z\": 1, \"a\": 2}\n")
+	assertFileContents(t, filepath.Join(left, "left.json"), "{\"a\": 2, \"z\": 1}\n")
+	assertFileContents(t, filepath.Join(left, "sibling", "s.json"), "{\"a\": 2, \"z\": 1}\n")
+	assertFileContents(t, filepath.Join(right, "right.json"), "{\n\t\"z\": 1,\n\t\"a\": 2\n}\n")
+	assertFileContents(t, filepath.Join(child, "child.json"), "{\n  \"z\": 1,\n  \"a\": 2\n}\n")
 }
 
 func TestRunCheckReturnsNonZeroForUnformattedFile(t *testing.T) {
@@ -320,6 +387,58 @@ func TestRunCheckSkipsIgnoredConfigPaths(t *testing.T) {
 	}
 }
 
+func TestRunCheckChildConfigIgnoreReplacesParentIgnore(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	child := filepath.Join(root, "packages", "child")
+	rootIgnored := filepath.Join(root, "dist", "root-ignored.json")
+	childDist := filepath.Join(child, "dist", "checked.json")
+	childGenerated := filepath.Join(child, "api.generated.json")
+	childLocalIgnored := filepath.Join(child, "local-only.json")
+	if err := os.MkdirAll(filepath.Dir(rootIgnored), 0o755); err != nil {
+		t.Fatalf("mkdir root ignored: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(childDist), 0o755); err != nil {
+		t.Fatalf("mkdir child dist: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte("ignore = [\"dist\", \"*.generated.json\"]\n"), 0o644); err != nil {
+		t.Fatalf("write root config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(child, defaultConfigName), []byte("ignore = [\"local-only.json\"]\n"), 0o644); err != nil {
+		t.Fatalf("write child config: %v", err)
+	}
+	for _, path := range []string{rootIgnored, childDist, childGenerated, childLocalIgnored} {
+		if err := os.WriteFile(path, []byte(`{"x":1}`), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stdout = %q, stderr = %q", exitCode, exitDiff, stdout.String(), stderr.String())
+	}
+
+	output := stdout.String()
+	for _, path := range []string{childDist, childGenerated} {
+		if !strings.Contains(output, path) {
+			t.Fatalf("expected child config to check %s, got %q", path, output)
+		}
+	}
+	for _, path := range []string{rootIgnored, childLocalIgnored} {
+		if strings.Contains(output, path) {
+			t.Fatalf("expected %s to be ignored, got %q", path, output)
+		}
+	}
+	if stderr.String() != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
 func TestRunCheckPrunesIgnoredConfigDirectories(t *testing.T) {
 	t.Parallel()
 
@@ -338,6 +457,45 @@ func TestRunCheckPrunesIgnoredConfigDirectories(t *testing.T) {
 	}
 	if err := os.WriteFile(ignoredFile, []byte(`{"ignored":true}`), 0o644); err != nil {
 		t.Fatalf("write ignored file: %v", err)
+	}
+	if err := os.WriteFile(checked, []byte(`{"checked":true}`), 0o644); err != nil {
+		t.Fatalf("write checked file: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--check", root}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
+		return root, nil
+	})
+	if exitCode != exitDiff {
+		t.Fatalf("Run exit code = %d, want %d, stdout = %q, stderr = %q", exitCode, exitDiff, stdout.String(), stderr.String())
+	}
+	if strings.TrimSpace(stdout.String()) != checked {
+		t.Fatalf("expected only checked path in stdout, got %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("expected ignored nested config to be skipped, got stderr %q", stderr.String())
+	}
+}
+
+func TestRunCheckPrunesStandardIgnoredDirectoriesBeforeReadingNestedConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	vendorConfig := filepath.Join(root, "vendor", defaultConfigName)
+	vendorFile := filepath.Join(root, "vendor", "ignored.json")
+	checked := filepath.Join(root, "checked.json")
+	if err := os.MkdirAll(filepath.Dir(vendorConfig), 0o755); err != nil {
+		t.Fatalf("mkdir vendor: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("vendor/\n"), 0o644); err != nil {
+		t.Fatalf("write gitignore: %v", err)
+	}
+	if err := os.WriteFile(vendorConfig, []byte("tab_width = 0\n"), 0o644); err != nil {
+		t.Fatalf("write vendor config: %v", err)
+	}
+	if err := os.WriteFile(vendorFile, []byte(`{"ignored":true}`), 0o644); err != nil {
+		t.Fatalf("write vendor file: %v", err)
 	}
 	if err := os.WriteFile(checked, []byte(`{"checked":true}`), 0o644); err != nil {
 		t.Fatalf("write checked file: %v", err)
@@ -635,6 +793,63 @@ func TestRunUsesStdinFilepathForConfigDiscovery(t *testing.T) {
 	assertStringEqual(t, "{\"a\": 2, \"z\": 1}\n", stdout.String())
 }
 
+func TestRunUsesNearestConfigForNestedStdinFilepath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	left := filepath.Join(root, "left")
+	child := filepath.Join(left, "child")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatalf("mkdir child: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte("sort_keys = false\nobject_expand = \"never\"\n"), 0o644); err != nil {
+		t.Fatalf("write root config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(left, defaultConfigName), []byte("sort_keys = true\nobject_expand = \"never\"\n"), 0o644); err != nil {
+		t.Fatalf("write left config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(child, defaultConfigName), []byte("sort_keys = false\nobject_expand = \"always\"\n"), 0o644); err != nil {
+		t.Fatalf("write child config: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name          string
+		stdinFilepath string
+		expected      string
+	}{
+		{
+			name:          "root",
+			stdinFilepath: filepath.Join(root, "root.json"),
+			expected:      "{\"z\": 1, \"a\": 2}\n",
+		},
+		{
+			name:          "sibling",
+			stdinFilepath: filepath.Join(left, "sibling.json"),
+			expected:      "{\"a\": 2, \"z\": 1}\n",
+		},
+		{
+			name:          "child",
+			stdinFilepath: filepath.Join(child, "child.json"),
+			expected:      "{\n  \"z\": 1,\n  \"a\": 2\n}\n",
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := Run([]string{"--stdin-filepath", tc.stdinFilepath}, strings.NewReader(`{"z":1,"a":2}`), &stdout, &stderr, func() (string, error) {
+				return root, nil
+			})
+			if exitCode != exitSuccess {
+				t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+			}
+			assertStringEqual(t, tc.expected, stdout.String())
+		})
+	}
+}
+
 func TestRunInitCreatesMinimalConfig(t *testing.T) {
 	t.Parallel()
 
@@ -764,6 +979,16 @@ func TestRunWriteSkipsSymlinksDuringDirectoryTraversal(t *testing.T) {
 	if err := os.Symlink(outside, link); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
+	outsideDirFile := filepath.Join(t.TempDir(), "external", "inside.json")
+	if err := os.MkdirAll(filepath.Dir(outsideDirFile), 0o755); err != nil {
+		t.Fatalf("mkdir outside dir: %v", err)
+	}
+	if err := os.WriteFile(outsideDirFile, []byte(`{"inside":1}`), 0o644); err != nil {
+		t.Fatalf("write outside dir file: %v", err)
+	}
+	if err := os.Symlink(filepath.Dir(outsideDirFile), filepath.Join(root, "linked-dir")); err != nil {
+		t.Skipf("symlinked directories unavailable: %v", err)
+	}
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -782,6 +1007,7 @@ func TestRunWriteSkipsSymlinksDuringDirectoryTraversal(t *testing.T) {
 		t.Fatalf("read outside file: %v", err)
 	}
 	assertStringEqual(t, `{"x":1}`, string(contents))
+	assertFileContents(t, outsideDirFile, `{"inside":1}`)
 }
 
 func TestRunWriteExplicitSymlinkUpdatesTargetAndPreservesLink(t *testing.T) {
@@ -933,6 +1159,36 @@ func TestRunExplicitConfigOverridesDiscovery(t *testing.T) {
 	var stderr bytes.Buffer
 	exitCode := Run([]string{"--config", explicitConfig, target}, bytes.NewReader(nil), &stdout, &stderr, func() (string, error) {
 		return root, nil
+	})
+	if exitCode != exitSuccess {
+		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())
+	}
+	assertStringEqual(t, "{\"a\": 2, \"z\": 1}\n", stdout.String())
+}
+
+func TestRunExplicitConfigOverridesStdinFilepathDiscovery(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	nested := filepath.Join(root, "nested")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("mkdir nested: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, defaultConfigName), []byte("sort_keys = false\nobject_expand = \"never\"\n"), 0o644); err != nil {
+		t.Fatalf("write root config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(nested, defaultConfigName), []byte("sort_keys = false\nobject_expand = \"always\"\n"), 0o644); err != nil {
+		t.Fatalf("write nested config: %v", err)
+	}
+	explicitConfig := filepath.Join(root, "explicit.toml")
+	if err := os.WriteFile(explicitConfig, []byte("sort_keys = true\nobject_expand = \"never\"\n"), 0o644); err != nil {
+		t.Fatalf("write explicit config: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Run([]string{"--config", explicitConfig, "--stdin-filepath", filepath.Join(nested, "stdin.json")}, strings.NewReader(`{"z":1,"a":2}`), &stdout, &stderr, func() (string, error) {
+		return nested, nil
 	})
 	if exitCode != exitSuccess {
 		t.Fatalf("Run exit code = %d, stderr = %s", exitCode, stderr.String())

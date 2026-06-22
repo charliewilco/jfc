@@ -37,6 +37,14 @@ jfc --version
 
 Download checksummed release archives from GitHub Releases when tagged builds are available. Release archives contain the `jfc` binary and `man/jfc.1` for Darwin, Linux, and Windows on `amd64` and `arm64`.
 
+Verify downloaded archives from the release directory:
+
+```bash
+sha256sum -c checksums.txt
+# or, on macOS without GNU coreutils:
+shasum -a 256 -c checksums.txt
+```
+
 Homebrew packaging is not published yet; use Go install or GitHub release archives for now.
 
 Build from source in a local checkout:
@@ -134,7 +142,9 @@ Traversal does not follow symlinked directories or symlinked files discovered wh
 
 ## Configuration
 
-`jfc` looks for `jfc.toml` by walking upward from each file being formatted. `--config` overrides discovery for all targets. Stdin discovery starts from `--stdin-filepath` when provided, otherwise from the current working directory.
+`jfc` looks for `jfc.toml` by walking upward from each file being formatted. Discovery is nearest-file wins: each target uses the closest `jfc.toml` in its own directory or an ancestor directory. `--config` overrides discovery for all targets. Stdin discovery starts from `--stdin-filepath` when provided, otherwise from the current working directory.
+
+Config files do not merge. If a repo has `Z/jfc.toml`, `Z/A/jfc.toml`, and `Z/B/jfc.toml`, files under `Z/A` use `Z/A/jfc.toml`, files under `Z/B` use `Z/B/jfc.toml`, and files under `Z/C` use `Z/jfc.toml`. In particular, an `ignore = [...]` array in a nearer config replaces the parent config's jfc-specific ignore list for targets beneath it.
 
 Example:
 
@@ -303,6 +313,8 @@ just release-check
 
 `just release-check` cross-compiles Darwin, Linux, and Windows binaries for `amd64` and `arm64`, packages each binary with the man page, writes `checksums.txt`, and verifies archive contents.
 
+Release provenance and signing are not published yet. Checksummed GitHub release archives and Go install are the supported distribution paths for now.
+
 ## Performance
 
 Formatter benchmark baselines are available through:
@@ -329,3 +341,10 @@ The default fuzz duration is `10s` per target.
 ## Man Page
 
 A manual page is included at [man/jfc.1](man/jfc.1).
+
+## Project Docs
+
+- [AGENTS.md](AGENTS.md): agent workflow map and invariants
+- [ARCHITECTURE.md](ARCHITECTURE.md): codebase map and architectural boundaries
+- [DESIGN.md](DESIGN.md): user model, formatter scope, and non-goals
+- [QUALITY_SCORE.md](QUALITY_SCORE.md): quality grades and tracked gaps

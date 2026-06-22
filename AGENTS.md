@@ -1,31 +1,52 @@
-# Repository Guidelines
+# Agent Guide
 
-## Project Structure & Module Organization
+Start here, then open the smallest deeper document needed for the task.
 
-`jfc` is a Go CLI rooted at `main.go`. Core implementation lives in `internal/jfc`, with format-specific files such as `format_jsonc.go`, `format_yaml.go`, and `format_markdown.go`. Tests sit beside the package code as `*_test.go`. Golden fixtures and sample inputs live under `internal/jfc/testdata/format`. The manual page is maintained at `man/jfc.1`, and common local workflows are defined in `justfile`.
+## Repository Map
 
-## Build, Test, and Development Commands
+- `ARCHITECTURE.md` maps the codebase, execution flow, and invariants.
+- `DESIGN.md` explains the user model, config behavior, traversal model, formatter scope, and non-goals.
+- `QUALITY_SCORE.md` tracks product-domain and architectural-layer quality gaps over time.
+- `README.md` and `man/jfc.1` are the user-facing truth surface.
+- `justfile` is the local workflow entrypoint.
 
-- `just` lists available development recipes.
-- `just run -- <args>` runs the CLI with `go run .`; for example, `just run -- --check README.md`.
+## Project Structure
+
+`jfc` is a Go CLI rooted at `main.go`. Core implementation lives in `internal/jfc`, with format-specific files such as `format_jsonc.go`, `format_yaml.go`, and `format_markdown.go`. Tests sit beside package code as `*_test.go`. Golden fixtures and sample inputs live under `internal/jfc/testdata/format`. Release packaging checks live in `scripts/release-check.sh`.
+
+## Commands
+
+- `just` lists available recipes.
+- `just run -- <args>` runs the CLI with `go run .`.
 - `just build` builds a local `./jfc` binary.
-- `just test` runs `go test ./...`.
+- `just test` runs the Go test suite.
 - `just fmt` applies `go fmt ./...`.
-- `just check` runs the pre-handoff verification path: tests plus `go build ./...`.
-- `just install` installs the CLI into your Go bin directory.
+- `just check` runs the pre-handoff verification path.
+- `just conformance`, `just bench`, `just fuzz`, and `just release-check` cover focused confidence passes.
 
-## Coding Style & Naming Conventions
+## Working Rules
 
-Use idiomatic Go and keep code formatted with `gofmt`/`go fmt`; this means tabs for indentation where Go uses indentation. Keep package code in `internal/jfc` unless adding a new public entrypoint. Prefer small, format-focused files and explicit names such as `format_toml.go` or `parser_test.go`. Test functions should follow Go naming conventions, e.g. `TestFormatJSONRejectsInvalidUTF8`.
+- Follow existing project conventions.
+- Use idiomatic Go and keep files gofmt-formatted; Go indentation is tabs where gofmt uses indentation.
+- Keep package code in `internal/jfc` unless adding a new public entrypoint.
+- Prefer focused tests beside the behavior they cover.
+- Prefer golden fixtures when formatter output readability matters.
+- Documentation-only changes do not require checks unless requested; code changes require relevant checks before handoff.
+- Never claim checks passed unless they were actually run.
 
-## Testing Guidelines
+## Invariants To Protect
 
-This repository uses the standard Go `testing` package. Add tests beside the code they cover and use `t.Parallel()` for independent cases. For formatter behavior, prefer golden fixtures in `internal/jfc/testdata/format` when output readability matters. Run `just test` during development and `just check` before handing off non-documentation changes.
+- The project config file is `jfc.toml`.
+- `--config <path>` overrides discovery for every target in the invocation, including stdin.
+- Without `--config`, each target uses nearest-config-wins discovery from that target path.
+- Config files do not merge.
+- `ignore = [...]` in a nearer config replaces the parent config's jfc-specific ignore list.
+- There is no `.jfcignore`; do not add one.
+- Standard ignore files remain external ignore sources, not jfc config files.
+- Markdown formatting must stay conservative and must not reflow prose.
+- YAML data loss is a highest-priority formatter bug class.
+- Be careful with path traversal, symlink handling, recursive directory walks, and in-place writes.
 
-## Commit & Pull Request Guidelines
+## Commit And PR Notes
 
-Recent history uses concise, imperative commit subjects such as `Correct JSONL config documentation` and `Reject table-shaped config values`. Keep commits narrowly scoped. Pull requests should describe the behavior change, mention related issues when applicable, and include the exact validation run, usually `just check`. Include before/after examples for formatter output changes.
-
-## Security & Configuration Tips
-
-Be careful with path traversal, symlink handling, recursive directory walks, and in-place writes. Configuration is discovered through `jfc.toml`; changes to config parsing should cover explicit config files, nearest-file discovery, and stdin behavior through `--stdin-filepath`.
+Recent history uses concise imperative commit subjects such as `Fix install version reporting` and `Prepare first jfc release`. Keep commits narrowly scoped. PRs should describe the behavior change, mention related issues when applicable, and include exact validation, usually `just check`.

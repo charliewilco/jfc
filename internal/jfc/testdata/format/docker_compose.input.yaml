@@ -1,0 +1,20 @@
+# Captured from a real-world Compose-style service layout.
+services:
+  app:
+    image: example/app:latest
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/app
+    depends_on:
+      - db
+    volumes:
+      - ./config:/etc/app:ro
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    volumes:
+      - data:/var/lib/postgresql/data
+volumes:
+  data:
