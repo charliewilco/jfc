@@ -1,6 +1,6 @@
 # Architecture
 
-`jfc` is a single-binary formatter for common project files. It should stay boring in the best sense: predictable config, conservative formatting, simple traversal, and clear errors when a file cannot be handled safely.
+`jfc` is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC. It should stay boring in the best sense: predictable config, conservative formatting, simple traversal, and clear errors when a supported file cannot be handled safely.
 
 This document is the high-level map. Product behavior lives in `DESIGN.md`, agent workflow guidance lives in `AGENTS.md`, and current quality gaps live in `QUALITY_SCORE.md`.
 

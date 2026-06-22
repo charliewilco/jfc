@@ -4,7 +4,7 @@ swear to god, i thought `jq` just did this, but here we are
 
 `jfc` means either "jesus fucking christ" or "just format correctly".
 
-`jfc` is a global formatter CLI for the project files that are always lying around: JSON, JSONC, JSONL, YAML, TOML, and Markdown. Install one binary, point it at a file or repo, and get predictable formatting without remembering a different tool for every format.
+`jfc` is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC. Point it at a supported file, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
 
 ```bash
 jfc package.json
@@ -214,7 +214,7 @@ jfc --write package.json
 jfc --write pyproject.toml
 ```
 
-Format a mixed repo in place:
+Format supported files in a mixed repo:
 
 ```bash
 jfc --write .

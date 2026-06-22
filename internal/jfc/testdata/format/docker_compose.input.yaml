@@ -1,4 +1,4 @@
-# Captured from a real-world Compose-style service layout.
+# YAML fixture based on a Compose-style service layout.
 services:
   app:
     image: example/app:latest

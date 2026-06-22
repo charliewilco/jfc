@@ -6,7 +6,7 @@ Start here, then open the smallest deeper document needed for the task.
 
 - `ARCHITECTURE.md` maps the codebase, execution flow, and invariants.
 - `DESIGN.md` explains the user model, config behavior, traversal model, formatter scope, and non-goals.
-- `QUALITY_SCORE.md` tracks product-domain and architectural-layer quality gaps over time.
+- `QUALITY_SCORE.md` tracks quality by format family and CLI subsystem over time.
 - `README.md` and `man/jfc.1` are the user-facing truth surface.
 - `justfile` is the local workflow entrypoint.
 

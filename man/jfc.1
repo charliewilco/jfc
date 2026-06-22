@@ -1,6 +1,6 @@
 .TH JFC 1 "2026-06-22" "jfc" "User Commands"
 .SH NAME
-jfc \- format common project files with one nearest TOML config
+jfc \- format JSON, TOML, YAML, Markdown, JSONL, and JSONC
 .SH SYNOPSIS
 .B jfc
 [\fB--version\fR]
@@ -15,8 +15,8 @@ jfc \- format common project files with one nearest TOML config
 .SH DESCRIPTION
 .B jfc
 means either "jesus fucking christ" or "just format correctly".
-It is a global formatter CLI for common project files: JSON, JSONC, JSONL, YAML, TOML, and Markdown.
-Install one binary, point it at a file or repo, and get predictable formatting without remembering a different tool for every format.
+It is a single-binary formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC.
+Point it at a supported file, stdin, or a repo tree, and get predictable formatting without remembering separate tools for those formats.
 Its strongest structured layout controls are for JSON-family files.
 TOML is validated and safely normalized without losing comments or order.
 Markdown is treated as a safe whitespace normalizer, not a prose rewriter.

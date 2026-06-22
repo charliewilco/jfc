@@ -4,7 +4,7 @@ version="0.1.0"
 edition="2021"
 license="MIT"
 repository="https://github.com/charliewilco/jfc"
-description="format common project files"
+description="format JSON, TOML, YAML, Markdown, JSONL, and JSONC"
    
 [dependencies]
 serde={version="1.0",features=["derive"]}

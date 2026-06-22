@@ -1,6 +1,6 @@
 # Design
 
-`jfc` serves developers who want one dependable formatter for the project files that accumulate around every repository: JSON, JSONC, JSONL, YAML, TOML, and Markdown.
+`jfc` serves developers who want one dependable formatter for JSON, TOML, YAML, Markdown, JSONL, and JSONC files.
 
 The user model is direct:
 
