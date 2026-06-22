@@ -1,6 +1,7 @@
 package jfc
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -47,7 +48,13 @@ func formatMarkdown(input []byte, config Config) ([]byte, error) {
 		}
 		return []byte(output), nil
 	}
-	return applyOutputConventions(output, config), nil
+	formatted := applyOutputConventions(output, config)
+	if config.TrailingNewline && !markdownHasTrailingLineEnding(input) && markdownFinalNewlineChangesHTML(input, formatted) {
+		cfg := config
+		cfg.TrailingNewline = false
+		return applyOutputConventions(output, cfg), nil
+	}
+	return formatted, nil
 }
 
 type markdownFence struct {
@@ -113,4 +120,28 @@ func markdownBlankLineCanNormalize(line string) bool {
 		}
 	}
 	return indentWidth < 4
+}
+
+func markdownHasTrailingLineEnding(input []byte) bool {
+	return len(input) > 0 && (input[len(input)-1] == '\n' || input[len(input)-1] == '\r')
+}
+
+func markdownFinalNewlineChangesHTML(input []byte, formatted []byte) bool {
+	before, err := markdownRenderHTML([]byte(normalizeLineEndingsToLF(string(input))))
+	if err != nil {
+		return false
+	}
+	after, err := markdownRenderHTML([]byte(normalizeLineEndingsToLF(string(formatted))))
+	if err != nil {
+		return false
+	}
+	return !bytes.Equal(before, after)
+}
+
+func markdownRenderHTML(input []byte) ([]byte, error) {
+	var output bytes.Buffer
+	if err := goldmark.Convert(input, &output); err != nil {
+		return nil, err
+	}
+	return output.Bytes(), nil
 }

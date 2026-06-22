@@ -299,7 +299,9 @@ It does not reflow prose or reindent code blocks.
 .B XML
 Experimental.
 Pretty-prints element-only XML while preserving token order, element order, attribute order, comments, processing instructions, and directives.
-XML containing CDATA or mixed element/text content is validated and only output conventions are applied.
+XML containing CDATA, mixed element/text content, multiline text elements,
+.BR xml:space="preserve" ,
+or multiline/tabbed attributes is validated and only output conventions are applied.
 .TP
 .B CSV and TSV
 Experimental and validate-only.

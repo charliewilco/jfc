@@ -40,7 +40,7 @@ For files and directories, target collection walks supported files only. The for
 - Format support is format-first, not purpose-first. JSON, TOML, YAML, Markdown, JSONL, JSONC, XML-family, CSV, TSV, dotenv, and HCL files are in scope whether or not they are configuration files.
 - Markdown formatting must remain conservative and must not reflow prose.
 - YAML formatting must treat data loss as the highest-priority bug class.
-- XML formatting is experimental. Pretty-print only structurally safe XML; validate and preserve CDATA or mixed text content.
+- XML formatting is experimental. Pretty-print only structurally safe XML; validate and preserve CDATA, mixed text content, multiline text elements, `xml:space="preserve"`, and multiline/tabbed attributes.
 - CSV and TSV formatting is experimental and validate-only. Do not serialize records into a new canonical form until a separate design proves embedded newline, quoting, and consumer-compatibility behavior.
 - Dotenv formatting is experimental. Normalize only the documented common assignment core; do not interpret interpolation, escaping, or dialect-specific quoting without tests and docs.
 - HCL formatting is experimental and delegated to HashiCorp HCL tooling. Do not add Terraform project semantics around it.

@@ -47,11 +47,11 @@ func formatXML(input []byte, config Config) ([]byte, error) {
 		return applyOutputConventions(string(input), config), nil
 	}
 
-	document, mixed, err := parseXMLDocument(input)
+	document, preserveOnly, err := parseXMLDocument(input)
 	if err != nil {
 		return nil, err
 	}
-	if mixed {
+	if preserveOnly {
 		return applyOutputConventions(string(input), config), nil
 	}
 
@@ -73,7 +73,7 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 	document := xmlDocument{}
 	stack := []*xmlNode{}
 	rootElements := 0
-	mixed := false
+	preserveOnly := false
 
 	for {
 		token, err := decoder.RawToken()
@@ -86,6 +86,11 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 
 		switch tok := token.(type) {
 		case xml.StartElement:
+			for _, attr := range tok.Attr {
+				if xmlAttrRequiresPreserve(attr) {
+					preserveOnly = true
+				}
+			}
 			node := &xmlNode{
 				kind: xmlNodeElement,
 				name: tok.Name,
@@ -100,7 +105,7 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 			} else {
 				parent := stack[len(stack)-1]
 				if parent.text != "" {
-					mixed = true
+					preserveOnly = true
 				}
 				parent.children = append(parent.children, node)
 			}
@@ -125,12 +130,15 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 			current := stack[len(stack)-1]
 			if strings.TrimSpace(text) == "" {
 				if text != "" && !strings.ContainsAny(text, "\r\n") && len(current.children) == 0 {
-					mixed = true
+					preserveOnly = true
 				}
 				continue
 			}
 			if len(current.children) > 0 {
-				mixed = true
+				preserveOnly = true
+			}
+			if strings.ContainsAny(text, "\r\n\t") {
+				preserveOnly = true
 			}
 			current.text += text
 		case xml.Comment:
@@ -140,7 +148,7 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 			} else {
 				parent := stack[len(stack)-1]
 				if parent.text != "" {
-					mixed = true
+					preserveOnly = true
 				}
 				parent.children = append(parent.children, node)
 			}
@@ -151,7 +159,7 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 			} else {
 				parent := stack[len(stack)-1]
 				if parent.text != "" {
-					mixed = true
+					preserveOnly = true
 				}
 				parent.children = append(parent.children, node)
 			}
@@ -162,7 +170,7 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 			} else {
 				parent := stack[len(stack)-1]
 				if parent.text != "" {
-					mixed = true
+					preserveOnly = true
 				}
 				parent.children = append(parent.children, node)
 			}
@@ -176,7 +184,14 @@ func parseXMLDocument(input []byte) (xmlDocument, bool, error) {
 	if rootElements == 0 {
 		return xmlDocument{}, false, fmt.Errorf("XML syntax error: missing root element")
 	}
-	return document, mixed, nil
+	return document, preserveOnly, nil
+}
+
+func xmlAttrRequiresPreserve(attr xml.Attr) bool {
+	if attr.Name.Space == "xml" && attr.Name.Local == "space" && attr.Value == "preserve" {
+		return true
+	}
+	return strings.ContainsAny(attr.Value, "\r\n\t")
 }
 
 func renderXMLDocument(document xmlDocument, config Config) string {

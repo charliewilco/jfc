@@ -35,6 +35,8 @@ func TestFormatDocumentFixtures(t *testing.T) {
 		{name: "changelog_markdown", input: "changelog.input.md", golden: "changelog.golden.md"},
 		{name: "xml", input: "xml.input.xml", golden: "xml.golden.xml"},
 		{name: "svg", input: "svg.input.svg", golden: "svg.golden.svg"},
+		{name: "svg_preserve_attribute", input: "svg_preserve_attribute.input.svg", golden: "svg_preserve_attribute.golden.svg"},
+		{name: "svg_style_text", input: "svg_style_text.input.svg", golden: "svg_style_text.golden.svg"},
 		{name: "plist", input: "plist.input.plist", golden: "plist.golden.plist"},
 		{name: "csproj", input: "csproj.input.csproj", golden: "csproj.golden.csproj"},
 		{name: "csv", input: "csv.input.csv", golden: "csv.golden.csv"},

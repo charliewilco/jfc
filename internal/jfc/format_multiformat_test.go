@@ -251,6 +251,32 @@ func TestFormatXMLFallsBackForCDATA(t *testing.T) {
 	assertStringEqual(t, "<root><![CDATA[<not-xml>]]></root>\n", string(output))
 }
 
+func TestFormatXMLFallsBackForWhitespaceSensitiveAttributes(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("<svg xml:space=\"preserve\">\r\n<polygon points=\"0,0 10,0 \r\n\t10,10\"/>\r\n</svg>")
+	output, err := formatXML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatXML returned error: %v", err)
+	}
+
+	expected := "<svg xml:space=\"preserve\">\n<polygon points=\"0,0 10,0 \n\t10,10\"/>\n</svg>\n"
+	assertStringEqual(t, expected, string(output))
+}
+
+func TestFormatXMLFallsBackForMultilineTextElements(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("<svg><style>\n:root {\n  --bg: black;\n}\n</style><path d=\"M0 0\"/></svg>")
+	output, err := formatXML(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatXML returned error: %v", err)
+	}
+
+	expected := "<svg><style>\n:root {\n  --bg: black;\n}\n</style><path d=\"M0 0\"/></svg>\n"
+	assertStringEqual(t, expected, string(output))
+}
+
 func TestFormatCSVValidatesAndPreservesBytes(t *testing.T) {
 	t.Parallel()
 
@@ -496,6 +522,19 @@ func TestFormatMarkdownDoesNotTreatIndentedCodeAsFence(t *testing.T) {
 	}
 
 	assertStringEqual(t, string(input), string(output))
+}
+
+func TestFormatMarkdownDoesNotAddSemanticFinalNewline(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("* ```0")
+	output, err := formatMarkdown(input, DefaultConfig())
+	if err != nil {
+		t.Fatalf("formatMarkdown returned error: %v", err)
+	}
+
+	assertStringEqual(t, string(input), string(output))
+	assertMarkdownHTMLSemanticallyEqual(t, input, output)
 }
 
 func TestFormatMarkdownPreservesIndentedCodeBlankLines(t *testing.T) {
